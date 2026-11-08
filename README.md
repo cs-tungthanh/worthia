@@ -1,4 +1,6 @@
-# Wealth
+# Worthia
+
+_Know what you're worth._
 
 Personal tracker for stock holdings (shares per symbol) and savings deposits across banks.
 
@@ -35,9 +37,9 @@ in an HttpOnly cookie; only a SHA-256 of the session token is stored.
   The form answers the same way whatever the email, and sends at most one link a minute per account.
   Emails need `EMAIL_FROM` plus one provider key (see [worker/email.ts](worker/email.ts)):
   - **[Brevo](https://brevo.com), free, no domain:** verify a sender address (e.g. your Gmail) under Senders, then set
-    `BREVO_API_KEY` and `EMAIL_FROM=Wealth <you@gmail.com>`. Emails from a Gmail address may land in spam.
+    `BREVO_API_KEY` and `EMAIL_FROM=Worthia <you@gmail.com>`. Emails from a Gmail address may land in spam.
   - **[Resend](https://resend.com), needs a domain you own:** verify it there, then set `RESEND_API_KEY` and
-    `EMAIL_FROM=Wealth <noreply@yourdomain.com>`.
+    `EMAIL_FROM=Worthia <noreply@yourdomain.com>`.
 
   Locally, leave them empty and the link is printed in the `pnpm dev` output instead.
 
@@ -60,6 +62,8 @@ secrets in production (`pnpm wrangler secret put NAME`, listed with `pnpm wrangl
 **Cloudflare.** One Worker (`wealth`) serves the React app and the `/api` routes; one D1 database (`wealth-db`)
 holds all data. The free plan's limits (100k requests/day, 10 ms CPU per request, 5 GB D1) are far above what
 this app uses. Manage both under Workers & Pages and Storage & databases → D1 in the dashboard.
+They keep their names from before the rename to Worthia: renaming the Worker would deploy a new one at a new
+`*.workers.dev` URL (breaking the Google redirect URI), and a D1 database cannot be renamed.
 
 **Google OAuth.** An OAuth client of type "Web application" in Google Cloud Console → APIs & Services →
 Credentials. Its authorized redirect URIs must list every place the app runs, exactly:
@@ -68,11 +72,11 @@ The consent screen must be published (or your account added as a test user) for 
 only for `openid email profile` and stores the email, name and Google account id.
 
 **Brevo.** Sends from a single verified sender address (Senders, Domains & Dedicated IPs → Senders), so no domain
-is needed; `EMAIL_FROM` must use exactly that address, e.g. `Wealth <you@gmail.com>`. Mail from a Gmail address
+is needed; `EMAIL_FROM` must use exactly that address, e.g. `Worthia <you@gmail.com>`. Mail from a Gmail address
 sent through Brevo may land in spam. The API key is under SMTP & API → API Keys; delivery status per email is
 under Transactional → Logs. Brevo receives only the recipient's email and the reset link.
 
-**Resend.** Only needed if you buy a domain and want `Wealth <noreply@yourdomain.com>`: verify the domain under
+**Resend.** Only needed if you buy a domain and want `Worthia <noreply@yourdomain.com>`: verify the domain under
 Domains (add its DNS records), set `RESEND_API_KEY`, and remove `BREVO_API_KEY`. Brevo can also send from a
 verified domain, so switching providers is optional.
 

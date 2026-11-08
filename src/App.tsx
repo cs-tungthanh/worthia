@@ -121,7 +121,7 @@ export default function App({
       <Container size="lg" px={{ base: "sm", sm: "md" }} py="lg" pb={64}>
         <Group justify="space-between" align="center" mb="md" wrap="nowrap" gap="sm">
           <Title order={1} size="h2">
-            Wealth
+            Worthia
           </Title>
           <Group gap="xs" wrap="nowrap" miw={0}>
             <Text size="sm" c="dimmed" truncate visibleFrom="xs">

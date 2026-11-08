@@ -42,7 +42,7 @@ export type User = { id: number; email: string; name: string | null; currency: C
 export type Rates = { base: "VND"; rates: Record<string, number>; updated: string; source: string };
 
 // Fired when any API call finds the session gone, so the app can show the sign-in page.
-export const SIGNED_OUT_EVENT = "wealth:signed-out";
+export const SIGNED_OUT_EVENT = "worthia:signed-out";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {

@@ -1,12 +1,12 @@
 // Outgoing email through whichever provider has a key set:
 // - Brevo (https://brevo.com), free 300/day, can send from a single verified address such as a Gmail one.
 // - Resend (https://resend.com), needs a domain you own and have verified there.
-// EMAIL_FROM is "Name <address>", e.g. "Wealth <you@gmail.com>" for Brevo or "Wealth <noreply@yourdomain.com>" for Resend.
+// EMAIL_FROM is "Name <address>", e.g. "Worthia <you@gmail.com>" for Brevo or "Worthia <noreply@yourdomain.com>" for Resend.
 
 export type EmailEnv = { BREVO_API_KEY?: string; RESEND_API_KEY?: string; EMAIL_FROM?: string };
 export type Email = { to: string; subject: string; text: string; html: string };
 
-// "Wealth <a@b.com>" → { name: "Wealth", email: "a@b.com" }; a bare address has no name.
+// "Worthia <a@b.com>" → { name: "Worthia", email: "a@b.com" }; a bare address has no name.
 export function parseFrom(from: string) {
   const m = from.trim().match(/^(.*?)\s*<([^<>\s]+@[^<>\s]+)>$/);
   return m

@@ -8,8 +8,8 @@ GOOGLE_CLIENT_SECRET=
 
 # Password reset emails. Set EMAIL_FROM plus ONE provider key (Brevo wins if both are set).
 # Leave them all empty locally: reset links are then printed in the dev server log.
-#  - Brevo (free, no domain): EMAIL_FROM=Wealth <acctools2025@gmail.com>, an address verified under Brevo → Senders.
-#  - Resend (needs your own domain verified there): EMAIL_FROM=Wealth <noreply@yourdomain.com>
-EMAIL_FROM=Wealth <acctools2025@gmail.com>
+#  - Brevo (free, no domain): EMAIL_FROM=Worthia <acctools2025@gmail.com>, an address verified under Brevo → Senders.
+#  - Resend (needs your own domain verified there): EMAIL_FROM=Worthia <noreply@yourdomain.com>
+EMAIL_FROM=Worthia <acctools2025@gmail.com>
 BREVO_API_KEY=
 RESEND_API_KEY=

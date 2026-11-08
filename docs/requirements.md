@@ -1,4 +1,4 @@
-# Wealth: service requirements
+# Worthia: service requirements
 
 What the app does today, written as requirements. Use it as the reference when changing behaviour: a change
 that contradicts a rule here should update this document in the same change. Setup, deployment and
@@ -8,7 +8,7 @@ Requirement IDs (`AUTH-3`, `STK-2`, …) are stable; reference them in commits a
 
 ## 1. Purpose and scope
 
-Wealth is a personal finance tracker for Vietnamese investors. Each signed-in user records:
+Worthia is a personal finance tracker for Vietnamese investors. Each signed-in user records:
 
 - **Stock transactions** for shares listed in Vietnam (HOSE, HNX, UPCoM, ETFs): buys, sales and bonus shares,
   typed in or imported from Pinetree statements. Holdings, average cost and profit/loss are computed from them.

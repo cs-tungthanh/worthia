@@ -26,7 +26,7 @@ export function resetPasswordEmail({
   const text = [
     greeting,
     "",
-    "We got a request to reset the password for your Wealth account.",
+    "We got a request to reset the password for your Worthia account.",
     "",
     "Set a new password:",
     link,
@@ -35,7 +35,7 @@ export function resetPasswordEmail({
     "",
     "Didn't ask for this? You can ignore this email; your password stays the same.",
     "",
-    "— Wealth",
+    "— Worthia",
   ].join("\n");
 
   const html = `<!doctype html>
@@ -44,7 +44,7 @@ export function resetPasswordEmail({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light only">
-<title>Reset your Wealth password</title>
+<title>Reset your Worthia password</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Use this link within ${minutes} minutes to choose a new password.</div>
@@ -55,14 +55,14 @@ export function resetPasswordEmail({
         <tr>
           <td style="padding:28px 32px 0 32px;font-family:${FONT};">
             <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:7px;background:${BRAND};color:#ffffff;font-weight:700;font-size:16px;text-align:center;vertical-align:middle;">W</span>
-            <span style="font-size:18px;font-weight:700;color:${TEXT};vertical-align:middle;padding-left:8px;">Wealth</span>
+            <span style="font-size:18px;font-weight:700;color:${TEXT};vertical-align:middle;padding-left:8px;">Worthia</span>
           </td>
         </tr>
         <tr>
           <td style="padding:24px 32px 0 32px;font-family:${FONT};color:${TEXT};">
             <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.3;font-weight:700;">Reset your password</h1>
             <p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-            <p style="margin:0;font-size:15px;line-height:1.6;">We got a request to reset the password for your Wealth account. Click the button below to choose a new one.</p>
+            <p style="margin:0;font-size:15px;line-height:1.6;">We got a request to reset the password for your Worthia account. Click the button below to choose a new one.</p>
           </td>
         </tr>
         <tr>
@@ -93,12 +93,12 @@ export function resetPasswordEmail({
           </td>
         </tr>
       </table>
-      <p style="margin:16px 0 0 0;font-family:${FONT};font-size:12px;line-height:1.5;color:#9ca3af;">You're receiving this because a password reset was requested for your Wealth account.</p>
+      <p style="margin:16px 0 0 0;font-family:${FONT};font-size:12px;line-height:1.5;color:#9ca3af;">You're receiving this because a password reset was requested for your Worthia account.</p>
     </td>
   </tr>
 </table>
 </body>
 </html>`;
 
-  return { subject: "Reset your Wealth password", text, html };
+  return { subject: "Reset your Worthia password", text, html };
 }

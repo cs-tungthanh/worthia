@@ -42,9 +42,12 @@ export function AuthCard({ subtitle, children }: { subtitle: string; children: R
   return (
     <Center mih="100dvh" px="md">
       <Paper withBorder radius="md" p="lg" w="100%" maw={380}>
-        <Title order={1} size="h3" mb={4}>
-          Wealth
+        <Title order={1} size="h3">
+          Worthia
         </Title>
+        <Text size="xs" c="dimmed" fs="italic" mb="sm">
+          Know what you're worth.
+        </Text>
         <Text c="dimmed" size="sm" mb="lg">
           {subtitle}
         </Text>
