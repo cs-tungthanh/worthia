@@ -1,0 +1,24 @@
+/* Mantine handles theming; only app-specific touches live here. */
+td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Below Mantine's sm breakpoint (48em) the form's buttons take a full row. */
+@media (max-width: 47.99em) {
+  .form-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Lifecycle chart event colours: categorical slots 1–3, validated as a set for light and dark
+   (scripts/validate_palette.js, all pairs). Lines stay neutral so these colours only ever mean events. */
+:root {
+  --lc-buy: #2a78d6;
+  --lc-sell: #eb6834;
+  --lc-dividend: #1baf7a;
+}
+[data-mantine-color-scheme="dark"] {
+  --lc-buy: #3987e5;
+  --lc-sell: #d95926;
+  --lc-dividend: #199e70;
+}
