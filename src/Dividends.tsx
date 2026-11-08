@@ -4,7 +4,7 @@ import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { dividendsApi, type Dividend, type Stock } from "./api";
 import { DATE_INPUT_FORMAT } from "./config";
-import { useMoney } from "./currency";
+import { Money } from "./currency";
 import { dmy } from "./format";
 import { FormButtons, MobileRow, ResponsiveList, RowActions, today, vndInput, type SectionProps } from "./ui";
 
@@ -14,7 +14,6 @@ type DividendForm = { stock_id: string | null; amount: number | string; paid_dat
 
 export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> & { stocks: Stock[] }) {
   const [editing, setEditing] = useState<Dividend | null>(null);
-  const { fmt } = useMoney();
   const form = useForm<DividendForm>({
     initialValues: { stock_id: null, amount: "", paid_date: today() },
     validate: {
@@ -74,7 +73,9 @@ export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> &
                     <Table.Tr key={d.id}>
                       <Table.Td>{dmy(d.paid_date)}</Table.Td>
                       <Table.Td fw={600}>{symbol(d.stock_id)}</Table.Td>
-                      <Table.Td ta="right">{fmt(d.cash_amount ?? 0, "VND", true)}</Table.Td>
+                      <Table.Td ta="right">
+                        <Money amount={d.cash_amount ?? 0} />
+                      </Table.Td>
                       <Table.Td>
                         <RowActions
                           label={`${symbol(d.stock_id)} dividend ${dmy(d.paid_date)}`}
@@ -94,7 +95,7 @@ export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> &
               title={symbol(d.stock_id)}
               label={`${symbol(d.stock_id)} dividend ${dmy(d.paid_date)}`}
               subtitle={dmy(d.paid_date)}
-              value={fmt(d.cash_amount ?? 0, "VND", true)}
+              value={<Money amount={d.cash_amount ?? 0} />}
               onEdit={() => startEdit(d)}
               onDelete={() => confirm("Delete this dividend?") && run(dividendsApi.remove(d.id))}
             />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   ActionIcon,
   Autocomplete,
@@ -7,6 +7,7 @@ import {
   NumberInput,
   Select,
   SimpleGrid,
+  Switch,
   Table,
   Text,
   Title,
@@ -16,13 +17,14 @@ import { useForm } from "@mantine/form";
 import { CURRENCIES, favouriteBanksApi, savingsApi, type Saving } from "./api";
 import { DATE_INPUT_FORMAT, PREDEFINED_BANKS, TERM_SUGGESTIONS } from "./config";
 import { dmy } from "./format";
-import { useMoney } from "./currency";
+import { Money, useMoney } from "./currency";
 import {
-  cell,
   FormButtons,
   MobileRow,
   ResponsiveList,
   RowActions,
+  type Sort,
+  SortHeader,
   toNumber,
   today,
   vndInput,
@@ -40,9 +42,12 @@ function addMonths(isoDate: string, months: number): string {
 
 const daysUntil = (isoDate: string) => Math.round((Date.parse(isoDate) - Date.parse(today())) / 86_400_000);
 
+// Null without both a start date and a term.
+const maturityDate = (s: Saving) => (s.start_date && s.term_months ? addMonths(s.start_date, s.term_months) : null);
+
 function Maturity({ saving }: { saving: Saving }) {
-  if (!saving.start_date || !saving.term_months) return null;
-  const date = addMonths(saving.start_date, saving.term_months);
+  const date = maturityDate(saving);
+  if (!date) return null;
   return (
     <Text span inherit c={daysUntil(date) < 0 ? "dimmed" : undefined}>
       {dmy(date)}
@@ -56,7 +61,7 @@ function OriginalAmount({ amount, currency }: { amount: number; currency: string
   if (currency === money.currency || money.convert(amount, currency) == null) return null;
   return (
     <Text span size="xs" c="dimmed" display="block" fw={400}>
-      {cell(amount, currency)}
+      <Money amount={amount} from={currency} own />
     </Text>
   );
 }
@@ -66,6 +71,49 @@ const termLabel = (months: number | null) => (months ? `${months} ${months === 1
 // Simple interest paid at maturity: amount × annual rate × term in years. Banks count actual days, so this is an estimate.
 const interestAtMaturity = (s: Saving) =>
   s.interest_rate != null && s.term_months ? Math.round((s.amount * s.interest_rate * s.term_months) / 100 / 12) : null;
+
+type SortKey = "bank" | "start" | "matures";
+
+// Deposits in the current order, then by bank. A deposit without the sorted date goes last either way.
+function sortSavings(rows: Saving[], sort: Sort<SortKey>) {
+  const value = (s: Saving) => (sort.key === "bank" ? s.bank : sort.key === "start" ? s.start_date : maturityDate(s));
+  return [...rows].sort((a, b) => {
+    const x = value(a);
+    const y = value(b);
+    if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
+    const c = x.localeCompare(y); // dates are YYYY-MM-DD, so text order is date order
+    return (
+      (sort.desc ? -c : c) ||
+      a.bank.localeCompare(b.bank) ||
+      (a.start_date ?? "").localeCompare(b.start_date ?? "") ||
+      a.id - b.id
+    );
+  });
+}
+
+// Banks in the order their first deposit appears, so groups follow the chosen sort.
+function groupByBank(rows: Saving[]) {
+  const groups = new Map<string, Saving[]>();
+  for (const s of rows) groups.set(s.bank, [...(groups.get(s.bank) ?? []), s]);
+  return [...groups].map(([bank, items]) => ({ bank, items }));
+}
+
+// "Group by bank" is a per-browser preference; storage may be unavailable (private mode), so it's best effort.
+const GROUP_PREF = "worthia:savings-group-by-bank";
+const readGroupPref = () => {
+  try {
+    return localStorage.getItem(GROUP_PREF) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeGroupPref = (on: boolean) => {
+  try {
+    localStorage.setItem(GROUP_PREF, on ? "1" : "0");
+  } catch {
+    // keep the choice for this page only
+  }
+};
 
 type SavingForm = {
   bank: string;
@@ -87,7 +135,9 @@ const emptyForm: SavingForm = {
 
 export function SavingsSection({ rows, favourites, run }: SectionProps<Saving> & { favourites: string[] }) {
   const [editing, setEditing] = useState<Saving | null>(null);
-  const { fmt } = useMoney();
+  const [sort, setSort] = useState<Sort<SortKey>>({ key: "bank", desc: false });
+  const [grouped, setGrouped] = useState(readGroupPref);
+  const { convert, currency } = useMoney();
   const form = useForm<SavingForm>({
     initialValues: emptyForm,
     validate: {
@@ -109,6 +159,25 @@ export function SavingsSection({ rows, favourites, run }: SectionProps<Saving> &
   };
   const bank = canonicalBank(form.values.bank);
   const isFavourite = favourites.includes(bank);
+
+  // Without grouping, one unnamed group holds every deposit, so the table renders the same way either way.
+  const sorted = sortSavings(rows, sort);
+  const groups = grouped ? groupByBank(sorted) : [{ bank: "", items: sorted }];
+  const depositCount = (n: number) => `${n} ${n === 1 ? "deposit" : "deposits"}`;
+  // A bank's total in the display currency; if a currency has no rate, its part is shown in that currency.
+  const subtotal = (items: Saving[]) => {
+    const byCurrency = new Map<string, number>();
+    for (const s of items) byCurrency.set(s.currency, (byCurrency.get(s.currency) ?? 0) + s.amount);
+    const converted = [...byCurrency].map(([cur, amount]) => convert(amount, cur));
+    if (converted.every((v) => v != null))
+      return <Money amount={converted.reduce((n, v) => n + v!, 0)} from={currency} />;
+    return [...byCurrency].map(([cur, amount], i) => (
+      <Fragment key={cur}>
+        {i > 0 && " + "}
+        <Money amount={amount} from={cur} />
+      </Fragment>
+    ));
+  };
 
   const startEdit = (s: Saving | null) => {
     setEditing(s);
@@ -139,88 +208,145 @@ export function SavingsSection({ rows, favourites, run }: SectionProps<Saving> &
 
   return (
     <section>
-      <Title order={2} size="h4" mt="xl" mb="sm">
-        Savings accounts
-      </Title>
+      <Group justify="space-between" align="center" mt="xl" mb="sm">
+        <Title order={2} size="h4">
+          Savings accounts
+        </Title>
+        {rows.length > 0 && (
+          <Switch
+            label="Group by bank"
+            checked={grouped}
+            onChange={(e) => {
+              setGrouped(e.currentTarget.checked);
+              writeGroupPref(e.currentTarget.checked);
+            }}
+          />
+        )}
+      </Group>
       {rows.length > 0 && (
         <ResponsiveList
           table={
             <Table.ScrollContainer minWidth={760}>
-              <Table striped highlightOnHover verticalSpacing="xs">
+              <Table striped={!grouped} highlightOnHover verticalSpacing="xs">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Bank</Table.Th>
+                    <SortHeader label="Bank" k="bank" sort={sort} onSort={setSort} />
                     <Table.Th ta="right">Amount</Table.Th>
                     <Table.Th ta="right">Rate</Table.Th>
                     <Table.Th ta="right">Term</Table.Th>
-                    <Table.Th>Start</Table.Th>
-                    <Table.Th>Matures</Table.Th>
+                    <SortHeader label="Start" k="start" sort={sort} onSort={setSort} />
+                    <SortHeader label="Matures" k="matures" sort={sort} onSort={setSort} />
                     <Table.Th ta="right">Est. interest</Table.Th>
                     <Table.Th />
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {rows.map((s) => {
-                    const interest = interestAtMaturity(s);
-                    return (
-                      <Table.Tr key={s.id}>
-                        <Table.Td fw={600}>{s.bank}</Table.Td>
-                        <Table.Td ta="right">
-                          {fmt(s.amount, s.currency, true)}
-                          <OriginalAmount amount={s.amount} currency={s.currency} />
-                        </Table.Td>
-                        <Table.Td ta="right">{s.interest_rate != null ? `${s.interest_rate}%` : ""}</Table.Td>
-                        <Table.Td ta="right">{termLabel(s.term_months)}</Table.Td>
-                        <Table.Td>{dmy(s.start_date, "")}</Table.Td>
-                        <Table.Td>
-                          <Maturity saving={s} />
-                        </Table.Td>
-                        <Table.Td ta="right">{interest != null ? fmt(interest, s.currency, true) : ""}</Table.Td>
-                        <Table.Td>
-                          <RowActions
-                            label={s.bank}
-                            onEdit={() => startEdit(s)}
-                            onDelete={() => confirm(`Delete ${s.bank}?`) && run(savingsApi.remove(s.id))}
-                          />
-                        </Table.Td>
-                      </Table.Tr>
-                    );
-                  })}
+                  {groups.map((g) => (
+                    <Fragment key={g.bank}>
+                      {grouped && (
+                        <Table.Tr bg="var(--mantine-color-default-hover)">
+                          <Table.Td fw={700}>
+                            {g.bank}{" "}
+                            <Text span size="xs" c="dimmed" fw={400}>
+                              {depositCount(g.items.length)}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td ta="right" fw={700}>
+                            {subtotal(g.items)}
+                          </Table.Td>
+                          <Table.Td colSpan={6} />
+                        </Table.Tr>
+                      )}
+                      {g.items.map((s) => {
+                        const interest = interestAtMaturity(s);
+                        return (
+                          <Table.Tr key={s.id}>
+                            <Table.Td fw={600} pl={grouped ? "lg" : undefined}>
+                              {grouped ? "" : s.bank}
+                            </Table.Td>
+                            <Table.Td ta="right">
+                              <Money amount={s.amount} from={s.currency} />
+                              <OriginalAmount amount={s.amount} currency={s.currency} />
+                            </Table.Td>
+                            <Table.Td ta="right">{s.interest_rate != null ? `${s.interest_rate}%` : ""}</Table.Td>
+                            <Table.Td ta="right">{termLabel(s.term_months)}</Table.Td>
+                            <Table.Td>{dmy(s.start_date, "")}</Table.Td>
+                            <Table.Td>
+                              <Maturity saving={s} />
+                            </Table.Td>
+                            <Table.Td ta="right">
+                              {interest != null ? <Money amount={interest} from={s.currency} /> : ""}
+                            </Table.Td>
+                            <Table.Td>
+                              <RowActions
+                                label={s.bank}
+                                onEdit={() => startEdit(s)}
+                                onDelete={() => confirm(`Delete ${s.bank}?`) && run(savingsApi.remove(s.id))}
+                              />
+                            </Table.Td>
+                          </Table.Tr>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
           }
-          cards={rows.map((s) => {
-            const interest = interestAtMaturity(s);
-            return (
-              <MobileRow
-                key={s.id}
-                title={s.bank}
-                subtitle={
-                  <>
-                    {[s.interest_rate != null ? `${s.interest_rate}%` : null, termLabel(s.term_months)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    {s.start_date && s.term_months ? (
+          cards={groups.map((g) => (
+            <Fragment key={g.bank}>
+              {grouped && (
+                <Group justify="space-between" mt="xs">
+                  <Text fw={700} size="sm">
+                    {g.bank}{" "}
+                    <Text span size="xs" c="dimmed" fw={400}>
+                      {depositCount(g.items.length)}
+                    </Text>
+                  </Text>
+                  <Text fw={700} size="sm">
+                    {subtotal(g.items)}
+                  </Text>
+                </Group>
+              )}
+              {g.items.map((s) => {
+                const interest = interestAtMaturity(s);
+                return (
+                  <MobileRow
+                    key={s.id}
+                    title={s.bank}
+                    subtitle={
                       <>
-                        {" "}
-                        · <Maturity saving={s} />
+                        {[s.interest_rate != null ? `${s.interest_rate}%` : null, termLabel(s.term_months)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        {s.start_date && s.term_months ? (
+                          <>
+                            {" "}
+                            · <Maturity saving={s} />
+                          </>
+                        ) : null}
                       </>
-                    ) : null}
-                  </>
-                }
-                value={
-                  <>
-                    {fmt(s.amount, s.currency, true)}
-                    <OriginalAmount amount={s.amount} currency={s.currency} />
-                  </>
-                }
-                detail={interest != null ? `+${fmt(interest, s.currency, true)}` : undefined}
-                onEdit={() => startEdit(s)}
-                onDelete={() => confirm(`Delete ${s.bank}?`) && run(savingsApi.remove(s.id))}
-              />
-            );
-          })}
+                    }
+                    value={
+                      <>
+                        <Money amount={s.amount} from={s.currency} />
+                        <OriginalAmount amount={s.amount} currency={s.currency} />
+                      </>
+                    }
+                    detail={
+                      interest != null ? (
+                        <>
+                          +<Money amount={interest} from={s.currency} />
+                        </>
+                      ) : undefined
+                    }
+                    onEdit={() => startEdit(s)}
+                    onDelete={() => confirm(`Delete ${s.bank}?`) && run(savingsApi.remove(s.id))}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
         />
       )}
       <form onSubmit={form.onSubmit(submit)}>

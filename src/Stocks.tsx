@@ -1,20 +1,18 @@
 import { useState, type ReactNode } from "react";
-import {
-  Alert,
-  CloseButton,
-  Group,
-  Paper,
-  Table,
-  Text,
-  TextInput,
-  Title,
-  Tooltip,
-  UnstyledButton,
-} from "@mantine/core";
+import { Alert, CloseButton, Group, Paper, Table, Text, TextInput, Title, Tooltip } from "@mantine/core";
 import { stocksApi, type Dividend, type Quote, type Stock } from "./api";
-import { useMoney } from "./currency";
+import { Money, useMoney } from "./currency";
 import { TransactionForm } from "./TransactionForm";
-import { DayChange, MobileRow, ProfitLoss, ResponsiveList, RowActions, type SectionProps } from "./ui";
+import {
+  DayChange,
+  MobileRow,
+  ProfitLoss,
+  ResponsiveList,
+  RowActions,
+  type SectionProps,
+  type Sort,
+  SortHeader,
+} from "./ui";
 
 // Holdings are computed from transactions (buys, sells, bonus shares); they're changed by adding or editing
 // transactions, not by typing totals. A holding's average cost is the broker-style moving average, fees included;
@@ -28,43 +26,9 @@ type SortKey = "symbol" | "shares" | "avg" | "netAvg" | "price" | "day" | "initi
 
 // Pinetree's "Giá trị ban đầu": shares × avg cost after dividends.
 const initialValue = (s: Stock) => (s.net_avg_price != null ? s.net_avg_price * s.shares : null);
-type Sort = { key: SortKey; desc: boolean };
-
-// A clickable column header: the first click sorts ascending (A→Z, low→high), the next flips it.
-function SortHeader({
-  label,
-  k,
-  sort,
-  onSort,
-  right = false,
-}: {
-  label: ReactNode;
-  k: SortKey;
-  sort: Sort;
-  onSort: (s: Sort) => void;
-  right?: boolean;
-}) {
-  const active = sort.key === k;
-  return (
-    <Table.Th ta={right ? "right" : undefined} aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}>
-      <UnstyledButton
-        fw={600}
-        fz="sm"
-        onClick={() => onSort({ key: k, desc: active ? !sort.desc : false })}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        {label}{" "}
-        <Text span inherit c={active ? undefined : "dimmed"} fw={400}>
-          {active ? (sort.desc ? "↓" : "↑") : "↕"}
-        </Text>
-      </UnstyledButton>
-    </Table.Th>
-  );
-}
 
 function AvgCost({ s, value }: { s: Holding; value: number | null }) {
-  const { fmt } = useMoney();
-  if (value != null) return <>{fmt(value, "VND", true)}</>;
+  if (value != null) return <Money amount={value} />;
   return (
     <Tooltip
       label={`${s.unpriced} ${s.unpriced === 1 ? "buy has" : "buys have"} no price. Import the cash statement or add it in the lifecycle.`}
@@ -91,7 +55,7 @@ export function StocksSection({
 }) {
   const { fmt } = useMoney();
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<Sort>({ key: "symbol", desc: false });
+  const [sort, setSort] = useState<Sort<SortKey>>({ key: "symbol", desc: false });
 
   // Search matches the symbol only. Sorting puts holdings missing the value (no price, unknown cost) last.
   const q = query.trim().toUpperCase();
@@ -222,15 +186,15 @@ export function StocksSection({
                         <Table.Td ta="right">
                           <AvgCost s={s} value={s.net_avg_price} />
                         </Table.Td>
-                        <Table.Td ta="right">{quote ? fmt(quote.price, "VND", true) : "—"}</Table.Td>
+                        <Table.Td ta="right">{quote ? <Money amount={quote.price} /> : "—"}</Table.Td>
                         <Table.Td ta="right">
                           <DayChange quote={quote} />
                         </Table.Td>
                         <Table.Td ta="right" title={initialValue(s) != null ? full(initialValue(s)!) : undefined}>
-                          {initialValue(s) != null ? fmt(initialValue(s)!, "VND", true) : "—"}
+                          {initialValue(s) != null ? <Money amount={initialValue(s)!} /> : "—"}
                         </Table.Td>
                         <Table.Td ta="right" title={quote ? full(quote.price * s.shares) : undefined}>
-                          {quote ? fmt(quote.price * s.shares, "VND", true) : "—"}
+                          {quote ? <Money amount={quote.price * s.shares} /> : "—"}
                         </Table.Td>
                         <Table.Td ta="right">
                           {quote && initialValue(s) != null && (
@@ -267,10 +231,10 @@ export function StocksSection({
                 title={s.symbol}
                 subtitle={
                   <>
-                    {shares(s.shares)} × {quote ? fmt(quote.price, "VND", true) : "—"} <DayChange quote={quote} />
+                    {shares(s.shares)} × {quote ? <Money amount={quote.price} /> : "—"} <DayChange quote={quote} />
                   </>
                 }
-                value={quote ? fmt(quote.price * s.shares, "VND", true) : "—"}
+                value={quote ? <Money amount={quote.price * s.shares} /> : "—"}
                 detail={
                   quote && initialValue(s) != null ? (
                     <ProfitLoss cost={initialValue(s)!} value={quote.price * s.shares} compact />

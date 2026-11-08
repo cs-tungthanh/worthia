@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { Tooltip } from "@mantine/core";
 import type { Currency, Rates } from "./api";
 import { cell, money } from "./format";
 
@@ -35,4 +36,18 @@ export function useMoney() {
       return compact ? cell(value, cur) : money(value, cur);
     },
   };
+}
+
+// A table-style amount (VND shortened to K/M/B) that shows the whole amount on hover, or on tap on a phone:
+// 1,22M → 1.222.000 ₫. In the display currency, unless `own` keeps the amount in its own currency.
+export function Money({ amount, from = "VND", own = false }: { amount: number; from?: string; own?: boolean }) {
+  const { fmt } = useMoney();
+  const short = own ? cell(amount, from) : fmt(amount, from, true);
+  const full = own ? money(amount, from) : fmt(amount, from);
+  if (short === full) return <>{short}</>;
+  return (
+    <Tooltip label={full} withArrow openDelay={150} events={{ hover: true, focus: true, touch: true }}>
+      <span style={{ cursor: "default" }}>{short}</span>
+    </Tooltip>
+  );
 }

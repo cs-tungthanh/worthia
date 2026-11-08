@@ -226,7 +226,11 @@ No email verification at registration, password change while signed in, profile 
   28/29 Feb). Shown only with both start date and term; dimmed once past.
 - **SAV-5** Estimated interest at maturity = `amount × rate% × term months ÷ 12`, rounded; simple interest, an
   estimate because banks count actual days. Shown only with both rate and term.
-- **SAV-6** Listed by bank, then start date. Editing replaces values; deleting asks for confirmation.
+- **SAV-6** Listed by bank, then start date. Clicking the Bank, Start or Matures header sorts by it, ascending
+  then descending; deposits without that date stay last. Editing replaces values; deleting asks for confirmation.
+- **SAV-7** *Group by bank* shows each bank as a heading with its number of deposits and their total in the
+  display currency (a currency without a rate is totalled in its own currency), its deposits beneath in the
+  current sort; banks follow the order of their first deposit. The switch is remembered per browser.
 
 ### Favourite banks
 
@@ -282,7 +286,10 @@ No email verification at registration, password change while signed in, profile 
     currency.
 - **DSH-3** Formatting: VND uses Vietnamese conventions. Dashboard tiles show the full amount (`52.900 ₫`);
   table cells shorten it with K = thousand, M = million, B = billion, up to 2 decimals (`52,9K`, `1,07M`,
-  `1,25B`), using the largest unit reached (999.999 shows as `1M`) and plain digits under 1.000; other currencies use their usual symbol and decimals (`$1,234.56`, `€3.50`, `¥916,627`). Inputs use `.` for thousands and `,` for decimals. Dates are `YYYY-MM-DD`.
+  `1,25B`), using the largest unit reached (999.999 shows as `1M`) and plain digits under 1.000; other currencies use their usual symbol and decimals (`$1,234.56`, `€3.50`, `¥916,627`). Inputs use `.` for thousands and `,` for decimals.
+  A shortened amount shows the full one on hover, or on tap on a phone (`1,22M` → `1.222.000 ₫`).
+  Dates show as day/month/year (`08/11/2026`; import times `08/11/2026 15:48`, local time) and date pickers
+  accept `DD/MM/YYYY`; the API and database keep `YYYY-MM-DD`.
 - **DSH-4** Responsive: below the `md` breakpoint, lists become one card per row; wider screens show tables.
   Light and dark themes follow the device setting.
 - **DSH-5** Request errors appear in a red alert at the top; validation errors show the first problem in words.
@@ -359,7 +366,7 @@ All under `/api`, JSON in and out. ✱ = no session required.
 | `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, net_avg_price, cost, realised, unpriced, cash_only, first_date }` | STK-2, STK-4 |
 | `DELETE /stocks/:id` | Delete a holding with its transactions and dividends | STK-6 |
 | `GET/POST /dividends`, `PUT/DELETE /dividends/:id` | Cash dividends | DIV-1–2 |
-| `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6 |
+| `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6–7 |
 | `GET /favourite-banks`, `PUT/DELETE /favourite-banks/:name` | Favourite banks | FAV-1–3 |
 | `GET /prices?symbols=` | Latest prices | PRC-2–4 |
 | `GET /prices/history?symbol=&from=` | Daily closes since `from`; `503` if unavailable | LIF-6 |

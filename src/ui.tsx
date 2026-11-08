@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { ActionIcon, Box, Button, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, Button, Group, Paper, Stack, Table, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import type { Quote } from "./api";
-import { useMoney } from "./currency";
+import { Money, useMoney } from "./currency";
 
 export type SectionProps<T> = { rows: T[]; run: (p: Promise<unknown>) => void };
 
@@ -14,6 +14,40 @@ export const toNumber = (v: number | string): number | null => (v === "" ? null 
 
 // Vietnamese grouping for money inputs: 1.000.000
 export const vndInput = { thousandSeparator: ".", decimalSeparator: ",", allowNegative: false } as const;
+
+export type Sort<K extends string> = { key: K; desc: boolean };
+
+// A clickable column header: the first click sorts ascending (A→Z, low→high, oldest first), the next flips it.
+export function SortHeader<K extends string>({
+  label,
+  k,
+  sort,
+  onSort,
+  right = false,
+}: {
+  label: ReactNode;
+  k: K;
+  sort: Sort<K>;
+  onSort: (s: Sort<K>) => void;
+  right?: boolean;
+}) {
+  const active = sort.key === k;
+  return (
+    <Table.Th ta={right ? "right" : undefined} aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}>
+      <UnstyledButton
+        fw={600}
+        fz="sm"
+        onClick={() => onSort({ key: k, desc: active ? !sort.desc : false })}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        {label}{" "}
+        <Text span inherit c={active ? undefined : "dimmed"} fw={400}>
+          {active ? (sort.desc ? "↓" : "↑") : "↕"}
+        </Text>
+      </UnstyledButton>
+    </Table.Th>
+  );
+}
 
 const trendColor = (n: number) => (n > 0 ? "teal" : n < 0 ? "red" : undefined);
 
@@ -47,7 +81,7 @@ export function ProfitLoss({
   return (
     <Text span inherit c={trendColor(diff)}>
       {sign}
-      {fmt(diff, currency, compact)}
+      {compact ? <Money amount={diff} from={currency} /> : fmt(diff, currency)}
       {pct}
     </Text>
   );
