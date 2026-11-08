@@ -35,7 +35,7 @@ in an HttpOnly cookie; only a SHA-256 of the session token is stored.
 - **Forgot password:** accounts with a password get an emailed link (single use, valid 30 minutes) that sets a
   new password and signs out every other session. Google-only accounts can't reset here; they use Google.
   The form answers the same way whatever the email, and sends at most one link a minute per account.
-  Emails need `EMAIL_FROM` plus one provider key (see [worker/email.ts](worker/email.ts)):
+  Emails need `EMAIL_FROM` plus one provider key (see [worker/email/send.ts](worker/email/send.ts)):
   - **[Brevo](https://brevo.com), free, no domain:** verify a sender address (e.g. your Gmail) under Senders, then set
     `BREVO_API_KEY` and `EMAIL_FROM=Worthia <you@gmail.com>`. Emails from a Gmail address may land in spam.
   - **[Resend](https://resend.com), needs a domain you own:** verify it there, then set `RESEND_API_KEY` and
@@ -81,7 +81,7 @@ Domains (add its DNS records), set `RESEND_API_KEY`, and remove `BREVO_API_KEY`.
 verified domain, so switching providers is optional.
 
 **ExchangeRate-API.** `open.er-api.com/v6/latest/VND`, the free open-access endpoint: no key, updated once a day,
-rate-limited if called too often, so the Worker caches it for an hour (see [worker/currency.ts](worker/currency.ts)).
+rate-limited if called too often, so the Worker caches it for an hour (see [worker/market/rates.ts](worker/market/rates.ts)).
 Its terms require the "Rates by ExchangeRate-API" link, which the dashboard shows whenever rates are used. It
 receives no user data.
 
@@ -135,13 +135,35 @@ Apart from the `/api/auth` sign-in routes, every route needs a session cookie an
 | GET | `/api/movements?symbol=` | transactions |
 | POST / PUT `/:id` | `/api/movements` | `{ symbol, date, kind: "buy" \| "sell" \| "bonus", quantity, price?, fee?, tax? }` |
 | DELETE | `/api/movements/:id` | |
-| POST | `/api/movements/import` | `{ movements, dividends }` from statements (sent by the import screen) |
+| POST | `/api/movements/import` | `{ movements, cashMovements?, remove?, dividends?, files?, changes? }` worked out by the import screen; returns `{ ok, warnings }` |
+| GET | `/api/imports` | import history, newest first |
 | GET | `/api/savings` | |
 | POST / PUT `/:id` | `/api/savings` | `{ bank, amount, currency?, interest_rate?, start_date?, term_months? }` |
 | DELETE | `/api/savings/:id` | |
 | GET | `/api/dividends` | |
 | POST / PUT `/:id` | `/api/dividends` | `{ stock_id, type: "cash", cash_amount, paid_date }` |
 | DELETE | `/api/dividends/:id` | |
+
+## Backend layout
+
+The Worker ([worker/](worker/)) is split by business domain. Each domain has a `routes.ts` (a Hono router: paths,
+zod validation, status codes) and a `queries.ts` (its D1 SQL, nothing else); rules that are neither live in their
+own file. [worker/index.ts](worker/index.ts) only signs requests in, mounts the routers and maps errors.
+
+| Domain | Owns | Notes |
+|---|---|---|
+| `auth/` | `users`, `sessions`, `password_resets`; `/api/auth/*` | `sessions.ts` (cookie + `requireUser` middleware), `passwords.ts` (hashing, tokens), `google.ts` (OAuth) |
+| `holdings/` | `stocks`, `stock_movements`; `/api/stocks`, `/api/movements` | `positions.ts`: holding summaries and the oversell check, on top of [shared/position.ts](shared/position.ts) |
+| `imports/` | `import_history`; `POST /api/movements/import`, `/api/imports` | Applies the plan the app worked out, in one batch |
+| `dividends/` | `dividends`; `/api/dividends` | Cash only; bonus shares are movements |
+| `savings/` | `savings`, `favourite_banks`; `/api/savings`, `/api/favourite-banks` | |
+| `market/` | `/api/prices`, `/api/rates` | Entrade prices and exchange rates, cached per Worker instance; no database |
+| `email/` | | Brevo/Resend sending and the email templates |
+
+[worker/http.ts](worker/http.ts) holds what every router shares (`AppEnv`, `idParam`). A domain may read another
+domain's queries (holdings reads dividends to work out net cost; imports writes holdings and dividends) but routes
+never call each other. Position math lives only in `shared/position.ts`, which the app also uses, so the server
+and the import preview always agree.
 
 ## Stocks: transactions
 

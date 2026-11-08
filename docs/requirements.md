@@ -356,7 +356,7 @@ All under `/api`, JSON in and out. ✱ = no session required.
 | `PATCH /auth/me` | `{ currency }` → updated user | CUR-1 |
 | `POST /auth/forgot` ✱ | Request reset email; always `{ ok: true }` | AUTH-10–12 |
 | `POST /auth/reset` ✱ | `{ token, password }` → new password, signed in | AUTH-13–14 |
-| `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, net_avg_price, cost, realised, unpriced, first_date }` | STK-2, STK-4 |
+| `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, net_avg_price, cost, realised, unpriced, cash_only, first_date }` | STK-2, STK-4 |
 | `DELETE /stocks/:id` | Delete a holding with its transactions and dividends | STK-6 |
 | `GET/POST /dividends`, `PUT/DELETE /dividends/:id` | Cash dividends | DIV-1–2 |
 | `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6 |

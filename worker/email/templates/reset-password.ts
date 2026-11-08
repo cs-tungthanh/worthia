@@ -1,4 +1,4 @@
-import type { Email } from "../email";
+import type { Email } from "../send";
 
 // Email HTML has to survive Gmail, Outlook and phone mail apps: tables for layout, inline styles only,
 // no external images or fonts, and a light design that still reads when a client forces dark mode.
