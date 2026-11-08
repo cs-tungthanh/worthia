@@ -231,6 +231,10 @@ No email verification at registration, password change while signed in, profile 
 - **SAV-7** *Group by bank* shows each bank as a heading with its number of deposits and their total in the
   display currency (a currency without a rate is totalled in its own currency), its deposits beneath in the
   current sort; banks follow the order of their first deposit. The switch is remembered per browser.
+- **SAV-8** Under the list: the total amount and total estimated interest, and the estimated total once every
+  deposit has matured (amount + estimated interest, SAV-5), with the last maturity date. A deposit without a rate
+  or term counts at its amount, and the note says how many have no term. Totals are in the display currency (a
+  currency without a rate is totalled in its own currency).
 
 ### Favourite banks
 
@@ -366,7 +370,7 @@ All under `/api`, JSON in and out. ✱ = no session required.
 | `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, net_avg_price, cost, realised, unpriced, cash_only, first_date }` | STK-2, STK-4 |
 | `DELETE /stocks/:id` | Delete a holding with its transactions and dividends | STK-6 |
 | `GET/POST /dividends`, `PUT/DELETE /dividends/:id` | Cash dividends | DIV-1–2 |
-| `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6–7 |
+| `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6–8 |
 | `GET /favourite-banks`, `PUT/DELETE /favourite-banks/:name` | Favourite banks | FAV-1–3 |
 | `GET /prices?symbols=` | Latest prices | PRC-2–4 |
 | `GET /prices/history?symbol=&from=` | Daily closes since `from`; `503` if unavailable | LIF-6 |
