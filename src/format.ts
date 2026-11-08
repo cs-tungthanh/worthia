@@ -1,4 +1,4 @@
-// Pure number formatting. Display-currency conversion lives in ./currency.tsx.
+// Pure number and date formatting. Display-currency conversion lives in ./currency.tsx.
 
 export const money = (amount: number, currency: string) =>
   new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", { style: "currency", currency }).format(amount);
@@ -26,3 +26,23 @@ export function compactVnd(amount: number) {
 // Compact form for table cells: VND shortened with K/M/B; other currencies unchanged.
 export const cell = (amount: number, currency = "VND") =>
   currency === "VND" ? compactVnd(amount) : money(amount, currency);
+
+// ---------- dates ----------
+// Dates travel as YYYY-MM-DD (timestamps as UTC) and are shown day/month/year.
+
+// 2026-11-08 → 08/11/2026; `missing` when there is no date.
+export const dmy = (iso: string | null | undefined, missing = "?") =>
+  iso ? iso.slice(0, 10).split("-").reverse().join("/") : missing;
+
+// Compact form for chart axes: 2026-11-08 → 08/11/26.
+export const dmyShort = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+};
+
+// A UTC timestamp (D1's "YYYY-MM-DD HH:MM:SS", or ISO) in local time: 08/11/2026 16:13.
+export function dmyTime(utc: string) {
+  const t = new Date(utc.includes("T") ? utc : `${utc.replace(" ", "T")}Z`);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(t.getDate())}/${two(t.getMonth() + 1)}/${t.getFullYear()} ${two(t.getHours())}:${two(t.getMinutes())}`;
+}

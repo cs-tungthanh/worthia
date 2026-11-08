@@ -3,7 +3,9 @@ import { NumberInput, Select, SimpleGrid, Table, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { dividendsApi, type Dividend, type Stock } from "./api";
+import { DATE_INPUT_FORMAT } from "./config";
 import { useMoney } from "./currency";
+import { dmy } from "./format";
 import { FormButtons, MobileRow, ResponsiveList, RowActions, today, vndInput, type SectionProps } from "./ui";
 
 // Cash dividends. Bonus shares (stock dividends) are transactions of their own: see TransactionForm.
@@ -70,12 +72,12 @@ export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> &
                 <Table.Tbody>
                   {rows.map((d) => (
                     <Table.Tr key={d.id}>
-                      <Table.Td>{d.paid_date}</Table.Td>
+                      <Table.Td>{dmy(d.paid_date)}</Table.Td>
                       <Table.Td fw={600}>{symbol(d.stock_id)}</Table.Td>
                       <Table.Td ta="right">{fmt(d.cash_amount ?? 0, "VND", true)}</Table.Td>
                       <Table.Td>
                         <RowActions
-                          label={`${symbol(d.stock_id)} dividend ${d.paid_date}`}
+                          label={`${symbol(d.stock_id)} dividend ${dmy(d.paid_date)}`}
                           onEdit={() => startEdit(d)}
                           onDelete={() => confirm("Delete this dividend?") && run(dividendsApi.remove(d.id))}
                         />
@@ -90,8 +92,8 @@ export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> &
             <MobileRow
               key={d.id}
               title={symbol(d.stock_id)}
-              label={`${symbol(d.stock_id)} dividend ${d.paid_date}`}
-              subtitle={d.paid_date}
+              label={`${symbol(d.stock_id)} dividend ${dmy(d.paid_date)}`}
+              subtitle={dmy(d.paid_date)}
               value={fmt(d.cash_amount ?? 0, "VND", true)}
               onEdit={() => startEdit(d)}
               onDelete={() => confirm("Delete this dividend?") && run(dividendsApi.remove(d.id))}
@@ -114,7 +116,7 @@ export function DividendsSection({ rows, stocks, run }: SectionProps<Dividend> &
             hideControls
             {...form.getInputProps("amount")}
           />
-          <DateInput placeholder="Date" valueFormat="YYYY-MM-DD" {...form.getInputProps("paid_date")} />
+          <DateInput placeholder="Date" valueFormat={DATE_INPUT_FORMAT} {...form.getInputProps("paid_date")} />
           <FormButtons editing={!!editing} addLabel="Add dividend" onCancel={() => startEdit(null)} />
         </SimpleGrid>
       </form>

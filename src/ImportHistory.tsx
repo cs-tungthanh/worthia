@@ -1,17 +1,13 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Loader, Modal, Stack, Table, Text } from "@mantine/core";
 import { importsApi, type ImportRecord } from "./api";
+import { dmy, dmyTime } from "./format";
 
 // Lists the statement files imported so far, with the period each covers, and sums up which time ranges each
 // statement type covers overall, so gaps (a month never imported) are easy to spot.
 
-const dmy = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "?");
 const NAMES = { securities: "Securities", cash: "Cash" } as const;
 const nextDay = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-
-// Stored in UTC as "YYYY-MM-DD HH:MM:SS"; shown in local time.
-const importedAt = (utc: string) =>
-  new Date(`${utc.replace(" ", "T")}Z`).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" });
 
 // Periods merged where they overlap or touch, oldest first.
 function coverage(records: ImportRecord[]): { from: string; to: string }[] {
@@ -100,7 +96,7 @@ export function ImportHistory() {
                 <Table.Tbody>
                   {records.map((r) => (
                     <Table.Tr key={r.id}>
-                      <Table.Td style={{ whiteSpace: "nowrap" }}>{importedAt(r.imported_at)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: "nowrap" }}>{dmyTime(r.imported_at)}</Table.Td>
                       <Table.Td>
                         <Badge variant="light" color={r.statement === "cash" ? "teal" : "blue"} miw="max-content">
                           {r.broker} · {NAMES[r.statement]}

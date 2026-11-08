@@ -14,7 +14,8 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { CURRENCIES, favouriteBanksApi, savingsApi, type Saving } from "./api";
-import { PREDEFINED_BANKS, TERM_SUGGESTIONS } from "./config";
+import { DATE_INPUT_FORMAT, PREDEFINED_BANKS, TERM_SUGGESTIONS } from "./config";
+import { dmy } from "./format";
 import { useMoney } from "./currency";
 import {
   cell,
@@ -44,7 +45,7 @@ function Maturity({ saving }: { saving: Saving }) {
   const date = addMonths(saving.start_date, saving.term_months);
   return (
     <Text span inherit c={daysUntil(date) < 0 ? "dimmed" : undefined}>
-      {date}
+      {dmy(date)}
     </Text>
   );
 }
@@ -170,7 +171,7 @@ export function SavingsSection({ rows, favourites, run }: SectionProps<Saving> &
                         </Table.Td>
                         <Table.Td ta="right">{s.interest_rate != null ? `${s.interest_rate}%` : ""}</Table.Td>
                         <Table.Td ta="right">{termLabel(s.term_months)}</Table.Td>
-                        <Table.Td>{s.start_date}</Table.Td>
+                        <Table.Td>{dmy(s.start_date, "")}</Table.Td>
                         <Table.Td>
                           <Maturity saving={s} />
                         </Table.Td>
@@ -280,7 +281,7 @@ export function SavingsSection({ rows, favourites, run }: SectionProps<Saving> &
             hideControls
             {...form.getInputProps("interest_rate")}
           />
-          <DateInput placeholder="Start" valueFormat="YYYY-MM-DD" {...form.getInputProps("start_date")} />
+          <DateInput placeholder="Start" valueFormat={DATE_INPUT_FORMAT} {...form.getInputProps("start_date")} />
           <Autocomplete
             placeholder="Months"
             data={TERM_SUGGESTIONS}

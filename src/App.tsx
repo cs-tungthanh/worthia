@@ -22,7 +22,7 @@ import { CurrencyProvider, useMoney } from "./currency";
 import { DividendsSection } from "./Dividends";
 import { ImportHistory } from "./ImportHistory";
 import { ImportStatement } from "./ImportStatement";
-import { money } from "./format";
+import { dmy, money } from "./format";
 import { SavingsSection } from "./Savings";
 import { StocksSection, type Holding } from "./Stocks";
 import { ProfitLoss } from "./ui";
@@ -257,7 +257,7 @@ function Summary({
           <Anchor href={rates.source} target="_blank" rel="noopener" inherit c="dimmed" underline="always">
             Rates by ExchangeRate-API
           </Anchor>
-          , updated {rates.updated.slice(0, 10)}
+          , updated {dmy(rates.updated)}
         </Text>
       )}
       {usesRates && !rates && currency !== "VND" && (

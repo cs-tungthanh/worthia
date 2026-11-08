@@ -5,7 +5,8 @@ import { DateInput } from "@mantine/dates";
 import { ReferenceDot, type TooltipContentProps } from "recharts";
 import { getPriceHistory, movementsApi, type Dividend, type Movement, type PricePoint } from "./api";
 import { useMoney } from "./currency";
-import { compactVnd } from "./format";
+import { DATE_INPUT_FORMAT } from "./config";
+import { compactVnd, dmy, dmyShort } from "./format";
 import {
   buildLifecycle,
   historyStart,
@@ -51,11 +52,6 @@ const MarkerIcon = ({ kind }: { kind: EventKind }) => (
   </svg>
 );
 
-const dmy = (iso: string) => iso.split("-").reverse().join("/");
-const shortDate = (iso: string) => {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y.slice(2)}`;
-};
 const shares = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 
 // Calendar time between two YYYY-MM-DD dates, e.g. "1 yr 7 mo", "3 mo 12 d", "9 days".
@@ -244,7 +240,7 @@ function EditRow({
           <DateInput
             size="xs"
             label="Date"
-            valueFormat="YYYY-MM-DD"
+            valueFormat={DATE_INPUT_FORMAT}
             w={130}
             disabled={imported}
             value={v.date}
@@ -456,7 +452,7 @@ export function LifecycleModal({
     gridAxis: "x" as const, // Mantine names the grid by axis: "x" draws faint horizontal lines
     tickLine: "none" as const,
     strokeWidth: 2,
-    xAxisProps: { tickFormatter: shortDate, minTickGap: 48 },
+    xAxisProps: { tickFormatter: dmyShort, minTickGap: 48 },
     tooltipAnimationDuration: 0,
   };
 

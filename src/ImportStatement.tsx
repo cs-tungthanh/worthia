@@ -26,6 +26,7 @@ import {
   type Stock,
 } from "./api";
 import { PINETREE_STATEMENTS } from "./config";
+import { dmy } from "./format";
 import { useMoney } from "./currency";
 import { parsePinetree, type Statement } from "./import/pinetree";
 import { isPinetreeCash, parsePinetreeCash, type CashStatement } from "./import/pinetreeCash";
@@ -37,7 +38,6 @@ import { readFirstSheet } from "./import/xlsx";
 // resulting movements and dividends are saved, after the user reviews them.
 
 const shares = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
-const dmy = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "?");
 
 type Files = {
   securities: Statement | null;

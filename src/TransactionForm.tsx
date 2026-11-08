@@ -3,6 +3,7 @@ import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { movementsApi, type Movement } from "./api";
 import { toNumber, today, vndInput } from "./ui";
+import { DATE_INPUT_FORMAT } from "./config";
 
 // Adds one transaction: a buy, a sale or bonus shares. Holdings follow from transactions (shared/position.ts).
 
@@ -62,7 +63,7 @@ export function TransactionForm({ symbols, run }: { symbols: string[]; run: (p: 
       />
       <SimpleGrid cols={{ base: 2, sm: 4, lg: kind === "sell" ? 8 : kind === "buy" ? 7 : 5 }} spacing="xs" mt="xs">
         <Autocomplete placeholder="Symbol" data={symbols} {...form.getInputProps("symbol")} />
-        <DateInput placeholder="Date" valueFormat="YYYY-MM-DD" {...form.getInputProps("date")} />
+        <DateInput placeholder="Date" valueFormat={DATE_INPUT_FORMAT} {...form.getInputProps("date")} />
         <NumberInput
           placeholder="Shares"
           min={0}

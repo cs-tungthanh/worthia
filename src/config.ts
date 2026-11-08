@@ -3,6 +3,10 @@
 
 export { CURRENCIES, type Currency } from "../shared/config";
 
+// How date pickers show and read dates (day/month/year). main.tsx loads the dayjs plugin that parses typed
+// dates in this format; values stay YYYY-MM-DD.
+export const DATE_INPUT_FORMAT = "DD/MM/YYYY";
+
 // How often open pages refresh market data. The Worker caches prices for a minute and rates for an hour.
 export const PRICE_REFRESH_MS = 60_000;
 export const RATES_REFRESH_MS = 60 * 60_000; // the source updates daily
