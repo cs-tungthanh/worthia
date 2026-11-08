@@ -35,7 +35,7 @@ in an HttpOnly cookie; only a SHA-256 of the session token is stored.
 - **Forgot password:** accounts with a password get an emailed link (single use, valid 30 minutes) that sets a
   new password and signs out every other session. Google-only accounts can't reset here; they use Google.
   The form answers the same way whatever the email, and sends at most one link a minute per account.
-  Emails need `EMAIL_FROM` plus one provider key (see [worker/email/send.ts](worker/email/send.ts)):
+  Emails need `EMAIL_FROM` plus one provider key (see [worker/config.ts](worker/config.ts)):
   - **[Brevo](https://brevo.com), free, no domain:** verify a sender address (e.g. your Gmail) under Senders, then set
     `BREVO_API_KEY` and `EMAIL_FROM=Worthia <you@gmail.com>`. Emails from a Gmail address may land in spam.
   - **[Resend](https://resend.com), needs a domain you own:** verify it there, then set `RESEND_API_KEY` and
@@ -81,7 +81,7 @@ Domains (add its DNS records), set `RESEND_API_KEY`, and remove `BREVO_API_KEY`.
 verified domain, so switching providers is optional.
 
 **ExchangeRate-API.** `open.er-api.com/v6/latest/VND`, the free open-access endpoint: no key, updated once a day,
-rate-limited if called too often, so the Worker caches it for an hour (see [worker/market/rates.ts](worker/market/rates.ts)).
+rate-limited if called too often, so the Worker caches it for an hour (see `RATES` in [worker/config.ts](worker/config.ts)).
 Its terms require the "Rates by ExchangeRate-API" link, which the dashboard shows whenever rates are used. It
 receives no user data.
 
@@ -164,6 +164,20 @@ own file. [worker/index.ts](worker/index.ts) only signs requests in, mounts the 
 domain's queries (holdings reads dividends to work out net cost; imports writes holdings and dividends) but routes
 never call each other. Position math lives only in `shared/position.ts`, which the app also uses, so the server
 and the import preview always agree.
+
+## Configuration
+
+Settings live in three files, one per place they run, so a secret can never end up in the browser bundle:
+
+| File | Holds |
+|---|---|
+| [worker/config.ts](worker/config.ts) | The secrets the Worker reads (`Secrets`, turned into typed `googleSettings` / `emailSettings`, null when unset) and its tunables: session and reset-link lifetimes, password rules, Google endpoints, price and rate sources, cache times, the 40-symbol cap |
+| [shared/config.ts](shared/config.ts) | What the Worker and the app must agree on: the display `CURRENCIES` |
+| [src/config.ts](src/config.ts) | App-only tunables: price and rate refresh intervals, Pinetree statement links, suggested banks and terms |
+
+Tunables are code constants: changing one is a commit and a deploy. Secrets come from `.dev.vars` locally and
+`pnpm wrangler secret put NAME` in production; a new one goes in `Secrets` and in
+[.dev.vars.example](.dev.vars.example).
 
 ## Stocks: transactions
 

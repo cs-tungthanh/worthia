@@ -1,3 +1,5 @@
+import type { Currency } from "./config";
+
 // A holding, computed by the server from its share movements (shared/position.ts).
 export type Stock = {
   id: number;
@@ -33,9 +35,7 @@ export type Dividend = {
 
 export type Quote = { price: number; prevClose: number | null; time: string };
 
-// Display currencies a user can pick. Keep in sync with CURRENCIES in worker/market/rates.ts.
-export const CURRENCIES = ["VND", "USD", "EUR", "JPY"] as const;
-export type Currency = (typeof CURRENCIES)[number];
+export { CURRENCIES, type Currency } from "./config";
 
 export type User = { id: number; email: string; name: string | null; currency: Currency };
 

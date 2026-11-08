@@ -14,6 +14,7 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { CURRENCIES, favouriteBanksApi, savingsApi, type Saving } from "./api";
+import { PREDEFINED_BANKS, TERM_SUGGESTIONS } from "./config";
 import { useMoney } from "./currency";
 import {
   cell,
@@ -26,38 +27,6 @@ import {
   vndInput,
   type SectionProps,
 } from "./ui";
-
-// Common Vietnamese deposit terms, offered as suggestions; any whole number of months is accepted.
-const TERM_SUGGESTIONS = ["1", "3", "6", "9", "12", "13", "18", "24", "36"];
-
-// Common Vietnamese banks, offered as suggestions; any other name can be typed and is suggested once used.
-const PREDEFINED_BANKS = [
-  "Vietcombank",
-  "BIDV",
-  "VietinBank",
-  "Agribank",
-  "Techcombank",
-  "MB Bank",
-  "ACB",
-  "VPBank",
-  "Sacombank",
-  "TPBank",
-  "HDBank",
-  "VIB",
-  "SHB",
-  "MSB",
-  "OCB",
-  "SeABank",
-  "LPBank",
-  "Eximbank",
-  "Nam A Bank",
-  "Bac A Bank",
-  "ABBank",
-  "PVcomBank",
-  "Cake",
-  "Timo",
-  "Tikop",
-];
 
 // Same day N months later, clamped to the month's last day (31 Jan + 1 month = 28/29 Feb), as banks do.
 function addMonths(isoDate: string, months: number): string {

@@ -1,7 +1,6 @@
-// Encoding, token and password-hashing helpers. Pure: no database, no request.
+import { PASSWORD } from "../config";
 
-// Workers caps PBKDF2 at 100k iterations.
-const PBKDF2_ITERATIONS = 100_000;
+// Encoding, token and password-hashing helpers. Pure: no database, no request.
 
 export const b64url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes))
@@ -26,7 +25,8 @@ async function pbkdf2(password: string, salt: Uint8Array, iterations: number) {
 // Stored as pbkdf2$<iterations>$<salt>$<hash> so the iteration count can be raised later.
 export async function hashPassword(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  return `pbkdf2$${PBKDF2_ITERATIONS}$${b64url(salt)}$${b64url(await pbkdf2(password, salt, PBKDF2_ITERATIONS))}`;
+  const iterations = PASSWORD.pbkdf2Iterations;
+  return `pbkdf2$${iterations}$${b64url(salt)}$${b64url(await pbkdf2(password, salt, iterations))}`;
 }
 
 export async function verifyPassword(password: string, stored: string) {

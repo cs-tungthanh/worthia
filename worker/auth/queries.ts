@@ -1,4 +1,4 @@
-import type { Currency } from "../market/rates";
+import type { Currency } from "../../shared/config";
 
 // D1 access for users, sessions and password resets. Tokens arrive here already hashed.
 
@@ -60,10 +60,10 @@ export const findPasswordUser = (db: D1Database, email: string) =>
     .bind(email)
     .first<{ id: number; email: string; name: string | null }>();
 
-export const resetRequestedLastMinute = async (db: D1Database, userId: number) =>
+export const resetRequestedWithin = async (db: D1Database, userId: number, minutes: number) =>
   Boolean(
     await db
-      .prepare("SELECT 1 FROM password_resets WHERE user_id = ? AND created_at > datetime('now', '-1 minute')")
+      .prepare(`SELECT 1 FROM password_resets WHERE user_id = ? AND created_at > datetime('now', '-${minutes} minute')`)
       .bind(userId)
       .first(),
   );

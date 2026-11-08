@@ -1,10 +1,11 @@
 import { type Context, Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { emailConfigured, sendEmail } from "../email/send";
+import { CURRENCIES } from "../../shared/config";
+import { emailSettings, PASSWORD, PASSWORD_RESET } from "../config";
+import { sendEmail } from "../email/send";
 import { resetPasswordEmail } from "../email/templates/reset-password";
 import type { AppEnv } from "../http";
-import { CURRENCIES } from "../market/rates";
 import { google } from "./google";
 import { getDummyHash, hashPassword, hashToken, randomToken, verifyPassword } from "./passwords";
 import {
@@ -13,7 +14,7 @@ import {
   findResetUser,
   findUserForLogin,
   replaceResetToken,
-  resetRequestedLastMinute,
+  resetRequestedWithin,
   setCurrency,
   setPassword,
 } from "./queries";
@@ -21,15 +22,13 @@ import { endSession, startSession } from "./sessions";
 
 // Accounts: registration, password sign-in, preferences and password reset. Mounted at /api/auth.
 
-const RESET_MINUTES = 30;
-
 export const auth = new Hono<AppEnv>();
 
 auth.route("/google", google);
 
 const credentials = z.object({
   email: z.email().trim().toLowerCase().max(254),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  password: z.string().min(PASSWORD.minLength, `Password must be at least ${PASSWORD.minLength} characters`).max(200),
 });
 
 auth.post(
@@ -78,7 +77,8 @@ auth.patch("/me", zValidator("json", z.object({ currency: z.enum(CURRENCIES) }))
 // ---------- password reset (password accounts only; Google-only accounts have nothing to reset) ----------
 
 async function sendResetEmail(c: Context<AppEnv>, to: string, name: string | null, link: string) {
-  if (!emailConfigured(c.env)) {
+  const email = emailSettings(c.env);
+  if (!email) {
     // Local dev without an email provider: print the link instead. Never in production, where logs aren't private.
     if (new URL(c.req.url).hostname === "localhost") console.log(`[dev] Password reset link for ${to}: ${link}`);
     else
@@ -88,7 +88,7 @@ async function sendResetEmail(c: Context<AppEnv>, to: string, name: string | nul
     return;
   }
   try {
-    await sendEmail(c.env, { to, ...resetPasswordEmail({ name, link, minutes: RESET_MINUTES }) });
+    await sendEmail(email, { to, ...resetPasswordEmail({ name, link, minutes: PASSWORD_RESET.minutes }) });
   } catch (e) {
     console.error("Password reset email failed:", (e as Error).message);
   }
@@ -98,10 +98,9 @@ async function sendResetEmail(c: Context<AppEnv>, to: string, name: string | nul
 auth.post("/forgot", zValidator("json", z.object({ email: z.email().trim().toLowerCase().max(254) })), async (c) => {
   const db = c.env.DB;
   const user = await findPasswordUser(db, c.req.valid("json").email);
-  // At most one email a minute per account, so the form can't be used to flood someone's inbox.
-  if (user && !(await resetRequestedLastMinute(db, user.id))) {
+  if (user && !(await resetRequestedWithin(db, user.id, PASSWORD_RESET.cooldownMinutes))) {
     const token = randomToken();
-    await replaceResetToken(db, user.id, await hashToken(token), RESET_MINUTES);
+    await replaceResetToken(db, user.id, await hashToken(token), PASSWORD_RESET.minutes);
     const link = `${new URL(c.req.url).origin}/reset-password?token=${token}`;
     // Sent after the response, so its timing doesn't reveal whether the account exists.
     c.executionCtx.waitUntil(sendResetEmail(c, user.email, user.name, link));

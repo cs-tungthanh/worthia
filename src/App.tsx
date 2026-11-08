@@ -17,6 +17,7 @@ import {
   type Stock,
   type User,
 } from "./api";
+import { PRICE_REFRESH_MS, RATES_REFRESH_MS } from "./config";
 import { CurrencyProvider, useMoney } from "./currency";
 import { DividendsSection } from "./Dividends";
 import { ImportHistory } from "./ImportHistory";
@@ -28,9 +29,6 @@ import { ProfitLoss } from "./ui";
 
 // The lifecycle view brings the chart library (~150 KB gzipped), so it loads the first time it's opened.
 const LifecycleModal = lazy(() => import("./Lifecycle").then((m) => ({ default: m.LifecycleModal })));
-
-const PRICE_REFRESH_MS = 60_000;
-const RATES_REFRESH_MS = 60 * 60_000; // the source updates daily
 
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (

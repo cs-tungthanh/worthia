@@ -25,6 +25,7 @@ import {
   type Movement,
   type Stock,
 } from "./api";
+import { PINETREE_STATEMENTS } from "./config";
 import { useMoney } from "./currency";
 import { parsePinetree, type Statement } from "./import/pinetree";
 import { isPinetreeCash, parsePinetreeCash, type CashStatement } from "./import/pinetreeCash";
@@ -46,20 +47,6 @@ type Files = {
 
 const XLSX = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-// Where Pinetree lets a signed-in customer download each statement as Excel.
-const PINETREE = {
-  securities: {
-    url: "https://trade.pinetree.vn/#/home/transaction/securities-statement",
-    title: "Sao kê giao dịch chứng khoán",
-    what: "buys, sales and bonus shares",
-  },
-  cash: {
-    url: "https://trade.pinetree.vn/#/home/transaction/cash-statement",
-    title: "Sao kê giao dịch tiền",
-    what: "trade prices, fees, tax and cash dividends",
-  },
-} as const;
-
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
     <Group align="flex-start" wrap="nowrap" gap="sm">
@@ -78,7 +65,7 @@ function missingStatement(files: Files, plan: ImportPlan): { name: string; why: 
   if (!files.securities && plan.missingBonus)
     return {
       name: "securities statement",
-      url: PINETREE.securities.url,
+      url: PINETREE_STATEMENTS.securities.url,
       why:
         "Bonus shares (Nhận số dư chứng khoán chuyển từ chờ giao dịch sang giao dịch) appear only in Sao kê giao dịch " +
         "chứng khoán, so they'll be missing and some holdings may show more shares sold than bought. You can also " +
@@ -87,7 +74,7 @@ function missingStatement(files: Files, plan: ImportPlan): { name: string; why: 
   if (!files.cash && plan.counts.stillUnpriced > 0)
     return {
       name: "cash statement",
-      url: PINETREE.cash.url,
+      url: PINETREE_STATEMENTS.cash.url,
       why:
         "Trade prices, fees, tax and cash dividends appear only in Sao kê giao dịch tiền, so these buys and sales " +
         "will have no price, and cost and profit stay unknown until it's imported.",
@@ -275,14 +262,15 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
           {(["securities", "cash"] as const).map((kind, i) => (
             <Step key={kind} n={i + 1}>
               <Text size="sm" fw={600}>
-                Download the {kind === "securities" ? "securities" : "cash"} statement ({PINETREE[kind].title})
+                Download the {kind === "securities" ? "securities" : "cash"} statement (
+                {PINETREE_STATEMENTS[kind].title})
               </Text>
               <Text size="sm" c="dimmed">
-                It has your {PINETREE[kind].what}. Sign in to Pinetree, choose the period, and export it to Excel
-                (.xlsx).
+                It has your {PINETREE_STATEMENTS[kind].what}. Sign in to Pinetree, choose the period, and export it to
+                Excel (.xlsx).
                 {lastTo[kind] && <> Your last import of it ran to {dmy(lastTo[kind]!)}.</>}
               </Text>
-              <Anchor href={PINETREE[kind].url} target="_blank" rel="noopener noreferrer" size="sm">
+              <Anchor href={PINETREE_STATEMENTS[kind].url} target="_blank" rel="noopener noreferrer" size="sm">
                 Open {kind === "securities" ? "securities" : "cash"} statement on Pinetree ↗
               </Anchor>
             </Step>

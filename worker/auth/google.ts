@@ -1,5 +1,6 @@
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { GOOGLE, googleSettings } from "../config";
 import type { AppEnv } from "../http";
 import { b64url, fromB64url, randomToken, sha256 } from "./passwords";
 import { createGoogleUser, findUserIdByEmail, findUserIdByGoogleSub, linkGoogleAccount } from "./queries";
@@ -7,26 +8,25 @@ import { isHttps, startSession } from "./sessions";
 
 // Google sign-in: OAuth 2.0 authorization code flow with PKCE. Mounted at /api/auth/google.
 
-const OAUTH_COOKIE = "google_oauth";
-
 const redirectUri = (c: Context) => `${new URL(c.req.url).origin}/api/auth/google/callback`;
 const failGoogle = (c: Context, message: string) => c.redirect(`/?auth_error=${encodeURIComponent(message)}`);
 
 export const google = new Hono<AppEnv>();
 
 google.get("/", async (c) => {
-  if (!c.env.GOOGLE_CLIENT_ID || !c.env.GOOGLE_CLIENT_SECRET) return failGoogle(c, "Google sign-in is not configured");
+  const settings = googleSettings(c.env);
+  if (!settings) return failGoogle(c, "Google sign-in is not configured");
   const state = randomToken(16);
   const verifier = randomToken();
-  setCookie(c, OAUTH_COOKIE, `${state}.${verifier}`, {
+  setCookie(c, GOOGLE.stateCookie, `${state}.${verifier}`, {
     httpOnly: true,
     secure: isHttps(c),
     sameSite: "Lax", // must survive the top-level redirect back from Google
     path: "/api/auth/google",
-    maxAge: 600,
+    maxAge: GOOGLE.stateMaxAgeSeconds,
   });
   const params = new URLSearchParams({
-    client_id: c.env.GOOGLE_CLIENT_ID,
+    client_id: settings.clientId,
     redirect_uri: redirectUri(c),
     response_type: "code",
     scope: "openid email profile",
@@ -35,7 +35,7 @@ google.get("/", async (c) => {
     code_challenge_method: "S256",
     prompt: "select_account",
   });
-  return c.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  return c.redirect(`${GOOGLE.authUrl}?${params}`);
 });
 
 type GoogleClaims = {
@@ -49,8 +49,8 @@ type GoogleClaims = {
 };
 
 google.get("/callback", async (c) => {
-  const [state, verifier] = (getCookie(c, OAUTH_COOKIE) ?? "").split(".");
-  deleteCookie(c, OAUTH_COOKIE, { path: "/api/auth/google" });
+  const [state, verifier] = (getCookie(c, GOOGLE.stateCookie) ?? "").split(".");
+  deleteCookie(c, GOOGLE.stateCookie, { path: "/api/auth/google" });
   const { code, state: returnedState, error } = c.req.query();
   if (error)
     return failGoogle(
@@ -59,14 +59,16 @@ google.get("/callback", async (c) => {
     );
   if (!code || !state || !verifier || returnedState !== state)
     return failGoogle(c, "Google sign-in expired. Please try again.");
+  const settings = googleSettings(c.env);
+  if (!settings) return failGoogle(c, "Google sign-in failed. Please try again.");
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetch(GOOGLE.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: c.env.GOOGLE_CLIENT_ID!,
-      client_secret: c.env.GOOGLE_CLIENT_SECRET!,
+      client_id: settings.clientId,
+      client_secret: settings.clientSecret,
       redirect_uri: redirectUri(c),
       grant_type: "authorization_code",
       code_verifier: verifier,
@@ -82,8 +84,8 @@ google.get("/callback", async (c) => {
   const { id_token } = await res.json<{ id_token: string }>();
   const claims = JSON.parse(new TextDecoder().decode(fromB64url(id_token.split(".")[1]))) as GoogleClaims;
   if (
-    claims.aud !== c.env.GOOGLE_CLIENT_ID ||
-    !["accounts.google.com", "https://accounts.google.com"].includes(claims.iss) ||
+    claims.aud !== settings.clientId ||
+    !(GOOGLE.issuers as readonly string[]).includes(claims.iss) ||
     claims.exp * 1000 < Date.now()
   )
     return failGoogle(c, "Google sign-in failed. Please try again.");

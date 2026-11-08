@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { PRICES } from "../config";
 import type { AppEnv } from "../http";
 import { getHistory, getQuotes } from "./prices";
 import { getRates } from "./rates";
@@ -8,9 +9,6 @@ import { getRates } from "./rates";
 // Market data from outside services: stock prices and exchange rates. Nothing here touches the database.
 
 export const market = new Hono<AppEnv>();
-
-// Each symbol is one upstream subrequest; Workers Free allows 50 per invocation.
-const MAX_SYMBOLS = 40;
 
 market.get("/prices", zValidator("query", z.object({ symbols: z.string().max(1000) })), async (c) => {
   const symbols = [
@@ -22,7 +20,7 @@ market.get("/prices", zValidator("query", z.object({ symbols: z.string().max(100
         .filter((s) => /^[A-Z0-9]{1,20}$/.test(s)),
     ),
   ];
-  if (symbols.length > MAX_SYMBOLS) return c.json({ error: `At most ${MAX_SYMBOLS} symbols` }, 400);
+  if (symbols.length > PRICES.maxSymbols) return c.json({ error: `At most ${PRICES.maxSymbols} symbols` }, 400);
   return c.json(await getQuotes(symbols));
 });
 
@@ -37,7 +35,7 @@ market.get(
         .trim()
         .toUpperCase()
         .regex(/^[A-Z0-9]{1,20}$/),
-      from: z.iso.date().refine((d) => d >= "2000-01-01", "Too early"),
+      from: z.iso.date().refine((d) => d >= PRICES.historyEarliest, "Too early"),
     }),
   ),
   async (c) => {

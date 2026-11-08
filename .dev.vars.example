@@ -1,4 +1,5 @@
 # Copy to .dev.vars (git-ignored) for local dev. In production set each with `pnpm wrangler secret put NAME`.
+# The Worker reads them through worker/config.ts (Secrets); add any new one there too.
 
 # Google Cloud Console → APIs & Services → Credentials → OAuth client ID (Web application).
 # Authorized redirect URIs: http://localhost:5173/api/auth/google/callback and
