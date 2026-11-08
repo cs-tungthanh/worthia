@@ -1,3 +1,4 @@
+import { dmy } from "../../shared/dates";
 import { computePosition, type PositionDividend, type PositionMovement } from "../../shared/position";
 import type { MovementRow } from "./queries";
 
@@ -12,7 +13,7 @@ export function overSoldMessage(symbol: string, rows: MovementRow[]): string | n
   const { overSold } = computePosition(sorted as PositionMovement[]);
   if (!overSold) return null;
   const m = sorted[overSold.index];
-  return `On ${m.date} you held ${overSold.held} ${symbol}, fewer than the ${m.quantity} sold.`;
+  return `On ${dmy(m.date)} you held ${overSold.held} ${symbol}, fewer than the ${m.quantity} sold.`;
 }
 
 // One message per symbol that oversells anywhere in its history.

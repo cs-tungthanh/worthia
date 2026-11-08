@@ -30,9 +30,8 @@ export const cell = (amount: number, currency = "VND") =>
 // ---------- dates ----------
 // Dates travel as YYYY-MM-DD (timestamps as UTC) and are shown day/month/year.
 
-// 2026-11-08 → 08/11/2026; `missing` when there is no date.
-export const dmy = (iso: string | null | undefined, missing = "?") =>
-  iso ? iso.slice(0, 10).split("-").reverse().join("/") : missing;
+// 2026-11-08 → 08/11/2026. Shared with the Worker, which uses it in error messages.
+export { dmy } from "../shared/dates";
 
 // Compact form for chart axes: 2026-11-08 → 08/11/26.
 export const dmyShort = (iso: string) => {
