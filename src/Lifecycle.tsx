@@ -58,6 +58,22 @@ const shortDate = (iso: string) => {
 };
 const shares = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 
+// Calendar time between two YYYY-MM-DD dates, e.g. "1 yr 7 mo", "3 mo 12 d", "9 days".
+function span(from: string, to: string) {
+  const [y1, m1, d1] = from.split("-").map(Number);
+  const [y2, m2, d2] = to.split("-").map(Number);
+  let months = (y2 - y1) * 12 + (m2 - m1);
+  if (d2 < d1) months--;
+  const lastDay = new Date(Date.UTC(y1, m1 + months, 0)).getUTCDate(); // 31 Jan + 1 mo → 28/29 Feb
+  const anchor = new Date(Date.UTC(y1, m1 - 1 + months, Math.min(d1, lastDay)));
+  const days = Math.round((Date.UTC(y2, m2 - 1, d2) - anchor.getTime()) / 86_400_000);
+  const years = Math.floor(months / 12);
+  months %= 12;
+  if (years) return months ? `${years} yr ${months} mo` : `${years} yr`;
+  if (months) return days ? `${months} mo ${days} d` : `${months} mo`;
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Paper withBorder radius="md" p="xs">
@@ -458,10 +474,22 @@ export function LifecycleModal({
       )}
       {lc && holding && (
         <Stack gap="md">
-          <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} spacing="xs">
+          <SimpleGrid cols={{ base: 2, sm: 4, md: 8 }} spacing="xs">
             <Stat label="Held now">{shares(holding.shares)}</Stat>
             <Stat label="Avg cost">{holding.avg_price != null ? vnd(holding.avg_price) : "—"}</Stat>
-            <Stat label="First event">{lc.firstDate ? dmy(lc.firstDate) : "—"}</Stat>
+            <Stat label="Avg cost after dividends">
+              {holding.net_avg_price != null ? vnd(holding.net_avg_price) : "—"}
+            </Stat>
+            <Stat label="First event">
+              {lc.firstDate ? dmy(lc.firstDate) : "—"}
+              {lc.firstDate && (
+                <Text span display="block" size="xs" c="dimmed" fw={400}>
+                  {lc.lastHeldDate
+                    ? `held ${span(lc.firstDate, lc.lastHeldDate)}, to ${dmy(lc.lastHeldDate)}`
+                    : `${span(lc.firstDate, today())} ago`}
+                </Text>
+              )}
+            </Stat>
             <Stat label="Bought / sold">
               {shares(lc.totals.bought)} / {shares(lc.totals.sold)}
             </Stat>

@@ -4,6 +4,7 @@ export type Stock = {
   symbol: string;
   shares: number; // held now, bonus shares included
   avg_price: number | null; // moving-average cost per share (fees included); null if a buy has no price
+  net_avg_price: number | null; // the same, lowered by cash dividends received (Pinetree's "TB")
   cost: number | null; // cost basis of the shares held
   realised: number | null; // realised profit from sales, after fees and tax; null if a sale can't be valued
   unpriced: number; // buys without a price
@@ -136,6 +137,30 @@ export type CashMovement = Pick<Movement, "symbol" | "date" | "kind" | "quantity
   trade_date: string;
 };
 
+// A statement file sent with an import, recorded in the import history.
+export type ImportFile = {
+  statement: "securities" | "cash";
+  broker: string;
+  file_name: string | null;
+  from: string | null;
+  to: string | null;
+  rows: number;
+};
+
+export type ImportRecord = {
+  id: number;
+  statement: "securities" | "cash";
+  broker: string;
+  file_name: string | null;
+  period_from: string | null;
+  period_to: string | null;
+  rows: number;
+  changes: number;
+  imported_at: string; // UTC, "YYYY-MM-DD HH:MM:SS"
+};
+
+export const importsApi = { list: () => request<ImportRecord[]>("/imports") };
+
 export const movementsApi = {
   list: (symbol?: string) => request<Movement[]>(`/movements${symbol ? `?symbol=${encodeURIComponent(symbol)}` : ""}`),
   create: (m: MovementInput & { symbol: string }) =>
@@ -148,6 +173,8 @@ export const movementsApi = {
     cashMovements: CashMovement[];
     remove: number[];
     dividends: { symbol: string; date: string; amount: number }[];
+    files: ImportFile[];
+    changes: number;
   }) => request<{ ok: true; warnings: string[] }>("/movements/import", { method: "POST", body: JSON.stringify(body) }),
 };
 

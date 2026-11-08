@@ -1,10 +1,34 @@
-import { useRef, useState } from "react";
-import { Alert, Badge, Button, FileButton, Group, List, Modal, Stack, Table, Text } from "@mantine/core";
-import { dividendsApi, movementsApi, stocksApi, type Dividend, type Movement, type Stock } from "./api";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import {
+  Alert,
+  Anchor,
+  Badge,
+  Box,
+  Button,
+  FileButton,
+  Group,
+  List,
+  Modal,
+  Paper,
+  Stack,
+  Table,
+  Text,
+  ThemeIcon,
+} from "@mantine/core";
+import {
+  dividendsApi,
+  importsApi,
+  movementsApi,
+  stocksApi,
+  type Dividend,
+  type ImportFile,
+  type Movement,
+  type Stock,
+} from "./api";
 import { useMoney } from "./currency";
 import { parsePinetree, type Statement } from "./import/pinetree";
 import { isPinetreeCash, parsePinetreeCash, type CashStatement } from "./import/pinetreeCash";
-import { planImport, type SymbolPlan } from "./import/plan";
+import { type ImportPlan, planImport, type SymbolPlan } from "./import/plan";
 import { readFirstSheet } from "./import/xlsx";
 
 // Imports Pinetree statements (.xlsx): the securities statement (share movements) and/or the cash statement
@@ -14,7 +38,62 @@ import { readFirstSheet } from "./import/xlsx";
 const shares = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 const dmy = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "?");
 
-type Files = { securities: Statement | null; cash: CashStatement | null };
+type Files = {
+  securities: Statement | null;
+  cash: CashStatement | null;
+  names: { securities?: string; cash?: string }; // file names, for the import history
+};
+
+const XLSX = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// Where Pinetree lets a signed-in customer download each statement as Excel.
+const PINETREE = {
+  securities: {
+    url: "https://trade.pinetree.vn/#/home/transaction/securities-statement",
+    title: "Sao kê giao dịch chứng khoán",
+    what: "buys, sales and bonus shares",
+  },
+  cash: {
+    url: "https://trade.pinetree.vn/#/home/transaction/cash-statement",
+    title: "Sao kê giao dịch tiền",
+    what: "trade prices, fees, tax and cash dividends",
+  },
+} as const;
+
+function Step({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <Group align="flex-start" wrap="nowrap" gap="sm">
+      <ThemeIcon radius="xl" size="md" variant="light">
+        <Text size="sm" fw={700}>
+          {n}
+        </Text>
+      </ThemeIcon>
+      <Box style={{ flex: 1 }}>{children}</Box>
+    </Group>
+  );
+}
+
+// Each statement holds half of the timeline, so the preview asks for whichever one is missing.
+function missingStatement(files: Files, plan: ImportPlan): { name: string; why: string; url: string } | null {
+  if (!files.securities && plan.missingBonus)
+    return {
+      name: "securities statement",
+      url: PINETREE.securities.url,
+      why:
+        "Bonus shares (Nhận số dư chứng khoán chuyển từ chờ giao dịch sang giao dịch) appear only in Sao kê giao dịch " +
+        "chứng khoán, so they'll be missing and some holdings may show more shares sold than bought. You can also " +
+        "import it later; it merges with these trades without counting them twice.",
+    };
+  if (!files.cash && plan.counts.stillUnpriced > 0)
+    return {
+      name: "cash statement",
+      url: PINETREE.cash.url,
+      why:
+        "Trade prices, fees, tax and cash dividends appear only in Sao kê giao dịch tiền, so these buys and sales " +
+        "will have no price, and cost and profit stay unknown until it's imported.",
+    };
+  return null;
+}
 
 function status(p: SymbolPlan): { label: string; color: string } {
   if (!p.before) return { label: "New", color: "teal" };
@@ -29,8 +108,14 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  // The download-and-upload guide shown before any file is picked, with the end of each statement's last
+  // imported period (so the user knows where to start the next download).
+  const [guide, setGuide] = useState(false);
+  const [lastTo, setLastTo] = useState<{ securities?: string; cash?: string }>({});
+  const [dragging, setDragging] = useState(false);
   // Clears the file input after each pick: browsers don't report choosing the same file again otherwise.
   const resetFile = useRef<() => void>(null);
+  const resetAdd = useRef<() => void>(null);
 
   // The preview compares the files with what's saved now, so it's reloaded after importing.
   const loadContext = async () => {
@@ -39,26 +124,60 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
   };
 
   const plan = files && context ? planImport({ ...files, ...context }) : null;
+  const missing = files && plan ? missingStatement(files, plan) : null;
 
-  const open = async (picked: File[]) => {
+  // `base`: files already open in the preview, when adding the other statement to them.
+  const open = async (picked: File[], base: Files | null = null) => {
     if (!picked.length) return;
     setError(null);
     setDone(null);
     try {
-      const next: Files = { securities: null, cash: null };
+      const next: Files = base ? { ...base, names: { ...base.names } } : { securities: null, cash: null, names: {} };
       for (const f of picked) {
         const rows = readFirstSheet(new Uint8Array(await f.arrayBuffer()));
-        if (isPinetreeCash(rows)) next.cash = parsePinetreeCash(rows);
-        else next.securities = parsePinetree(rows);
+        if (isPinetreeCash(rows)) {
+          next.cash = parsePinetreeCash(rows);
+          next.names.cash = f.name;
+        } else {
+          next.securities = parsePinetree(rows);
+          next.names.securities = f.name;
+        }
       }
       await loadContext();
       setFiles(next);
+      setGuide(false);
     } catch (e) {
-      setFiles(null);
+      if (!base) setFiles(null);
       setError((e as Error).message);
     } finally {
       resetFile.current?.();
+      resetAdd.current?.();
     }
+  };
+
+  const openGuide = async () => {
+    setError(null);
+    setGuide(true);
+    try {
+      const history = await importsApi.list();
+      const latest = (kind: "securities" | "cash") =>
+        history
+          .filter((r) => r.statement === kind && r.period_to)
+          .map((r) => r.period_to!)
+          .sort()
+          .at(-1);
+      setLastTo({ securities: latest("securities"), cash: latest("cash") });
+    } catch {
+      setLastTo({}); // the guide works without it
+    }
+  };
+
+  const drop = (e: DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const picked = [...e.dataTransfer.files].filter((f) => f.name.toLowerCase().endsWith(".xlsx"));
+    if (picked.length) open(picked);
+    else setError("Drop the statements as Excel files (.xlsx), as Pinetree exports them.");
   };
 
   const close = () => {
@@ -67,8 +186,36 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
     setDone(null);
   };
 
+  // The files behind this import and the period each covers, for the import history.
+  const historyFiles = (f: Files): ImportFile[] => [
+    ...(f.securities
+      ? [
+          {
+            statement: "securities" as const,
+            broker: f.securities.broker,
+            file_name: f.names.securities ?? null,
+            from: f.securities.from,
+            to: f.securities.to,
+            rows: f.securities.movements.length,
+          },
+        ]
+      : []),
+    ...(f.cash
+      ? [
+          {
+            statement: "cash" as const,
+            broker: f.cash.broker,
+            file_name: f.names.cash ?? null,
+            from: f.cash.from,
+            to: f.cash.to,
+            rows: f.cash.trades.length + f.cash.dividends.length,
+          },
+        ]
+      : []),
+  ];
+
   const confirm = async () => {
-    if (!plan) return;
+    if (!plan || !files) return;
     setBusy(true);
     setError(null);
     try {
@@ -77,6 +224,8 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
         cashMovements: plan.cashMovements,
         remove: plan.remove,
         dividends: plan.dividends,
+        files: historyFiles(files),
+        changes: plan.changes,
       });
       await onImported();
       await loadContext();
@@ -112,24 +261,75 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
 
   return (
     <>
-      <FileButton
-        resetRef={resetFile}
-        onChange={open}
-        multiple
-        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      >
-        {(props) => (
-          <Button {...props} size="compact-sm" variant="default">
-            Import statements
-          </Button>
-        )}
-      </FileButton>
+      <Button size="compact-sm" variant="default" onClick={openGuide}>
+        Import statements
+      </Button>
 
-      {error && !files && (
-        <Alert color="red" mt="sm" withCloseButton onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      <Modal opened={guide && !files} onClose={() => setGuide(false)} title="Import Pinetree statements" size="lg">
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Worthia needs both statements for a complete timeline. Download them from Pinetree as Excel files, then
+            upload them here. The files are read in your browser and never uploaded to a server.
+          </Text>
+
+          {(["securities", "cash"] as const).map((kind, i) => (
+            <Step key={kind} n={i + 1}>
+              <Text size="sm" fw={600}>
+                Download the {kind === "securities" ? "securities" : "cash"} statement ({PINETREE[kind].title})
+              </Text>
+              <Text size="sm" c="dimmed">
+                It has your {PINETREE[kind].what}. Sign in to Pinetree, choose the period, and export it to Excel
+                (.xlsx).
+                {lastTo[kind] && <> Your last import of it ran to {dmy(lastTo[kind]!)}.</>}
+              </Text>
+              <Anchor href={PINETREE[kind].url} target="_blank" rel="noopener noreferrer" size="sm">
+                Open {kind === "securities" ? "securities" : "cash"} statement on Pinetree ↗
+              </Anchor>
+            </Step>
+          ))}
+
+          <Step n={3}>
+            <Text size="sm" fw={600}>
+              Upload both files
+            </Text>
+            <Text size="sm" c="dimmed" mb="xs">
+              Pick them together, or one now and the other later. You'll see a preview before anything is saved, and
+              importing a period again never counts anything twice, so overlapping periods are fine.
+            </Text>
+            <Paper
+              withBorder
+              radius="md"
+              p="md"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={drop}
+              style={{
+                borderStyle: "dashed",
+                borderColor: dragging ? "var(--mantine-color-blue-filled)" : undefined,
+                background: dragging ? "var(--mantine-color-blue-light)" : undefined,
+              }}
+            >
+              <Stack align="center" gap={6}>
+                <FileButton resetRef={resetFile} onChange={open} multiple accept={XLSX}>
+                  {(props) => <Button {...props}>Choose .xlsx files</Button>}
+                </FileButton>
+                <Text size="xs" c="dimmed">
+                  or drop them here
+                </Text>
+              </Stack>
+            </Paper>
+          </Step>
+
+          {error && (
+            <Alert color="red" withCloseButton onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+        </Stack>
+      </Modal>
 
       <Modal opened={!!files} onClose={close} title="Import statements" size="xl">
         {files && plan && (
@@ -148,18 +348,25 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
                   needed).
                 </List.Item>
               )}
-              {!files.cash && (
-                <List.Item>
-                  Add the cash statement (Sao kê giao dịch tiền) for real trade prices, fees and cash dividends.
-                </List.Item>
-              )}
-              {!files.securities && (
-                <List.Item>
-                  Without the securities statement, trades become transactions dated by trade day, and prices fill in
-                  any transactions saved by an earlier import.
-                </List.Item>
-              )}
             </List>
+
+            {missing && (
+              <Alert color="yellow" title={`Add the ${missing.name} for a complete timeline`}>
+                <Stack gap="xs" align="flex-start">
+                  <Text size="sm">{missing.why}</Text>
+                  <Anchor href={missing.url} target="_blank" rel="noopener noreferrer" size="sm">
+                    Download it from Pinetree ↗
+                  </Anchor>
+                  <FileButton resetRef={resetAdd} onChange={(f) => f && open([f], files)} accept={XLSX}>
+                    {(props) => (
+                      <Button {...props} size="compact-sm" variant="light" color="yellow">
+                        Add {missing.name}
+                      </Button>
+                    )}
+                  </FileButton>
+                </Stack>
+              </Alert>
+            )}
 
             {error && <Alert color="red">{error}</Alert>}
             {done && <Alert color="teal">{done}</Alert>}
@@ -208,13 +415,6 @@ export function ImportStatement({ onImported }: { onImported: () => Promise<unkn
               </Table>
             </Table.ScrollContainer>
 
-            {plan.missingBonus && (
-              <Alert color="yellow" p="xs">
-                Bonus shares (stock dividends) are only in the securities statement (Sao kê giao dịch chứng khoán).
-                Import it too, now or later, to add them; it replaces these trades with its own rows, keeping their
-                prices.
-              </Alert>
-            )}
             {plan.overSold.length > 0 && (
               <Text size="sm" c="orange">
                 {plan.overSold.join(", ")}: more shares sold than bought, usually because bonus shares are missing.

@@ -54,22 +54,32 @@ export const ledger = new Hono<AppEnv>();
 
 ledger.get("/stocks", async (c) => {
   const db = c.env.DB;
-  const [{ results: stocks }, movements] = await Promise.all([
+  const [{ results: stocks }, movements, { results: dividends }] = await Promise.all([
     db
       .prepare("SELECT id, symbol FROM stocks WHERE user_id = ? ORDER BY symbol")
       .bind(c.var.user.id)
       .all<{ id: number; symbol: string }>(),
     loadMovements(db, c.var.user.id),
+    db
+      .prepare(
+        "SELECT stock_id, paid_date AS date, cash_amount AS amount FROM dividends WHERE user_id = ? AND type = 'cash'",
+      )
+      .bind(c.var.user.id)
+      .all<{ stock_id: number; date: string; amount: number }>(),
   ]);
   return c.json(
     stocks.map((s) => {
       const rows = movements.filter((m) => m.symbol === s.symbol);
-      const p = computePosition(rows as PositionMovement[]);
+      const p = computePosition(
+        rows as PositionMovement[],
+        dividends.filter((d) => d.stock_id === s.id),
+      );
       return {
         id: s.id,
         symbol: s.symbol,
         shares: p.shares,
         avg_price: p.avgCost,
+        net_avg_price: p.netAvgCost,
         cost: p.cost,
         realised: p.realised,
         // Buys still missing a price in the current position (they make the cost unknown).
@@ -204,6 +214,17 @@ ledger.delete("/movements/:id", idParam, async (c) => {
 
 // ---------- statement import ----------
 
+// Statement files imported so far, newest first.
+ledger.get("/imports", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, statement, broker, file_name, period_from, period_to, rows, changes, imported_at
+     FROM import_history WHERE user_id = ? ORDER BY imported_at DESC, id DESC LIMIT 500`,
+  )
+    .bind(c.var.user.id)
+    .all();
+  return c.json(results);
+});
+
 // Securities-statement rows are matched on (symbol, settlement date, type, shares, balance after); a row already
 // saved keeps it and gains any price, fee, tax or trade date the import now knows (from the cash statement).
 // Cash-statement trade days without a securities row are saved as their own transactions (one per symbol, side
@@ -233,12 +254,27 @@ const importInput = z.object({
     .array(z.object({ symbol: movementInput.shape.symbol, date: z.iso.date(), amount: z.number().int().positive() }))
     .max(2000)
     .default([]),
+  // The statement files behind this import, recorded in the import history.
+  files: z
+    .array(
+      z.object({
+        statement: z.enum(["securities", "cash"]),
+        broker: z.string().trim().min(1).max(50),
+        file_name: z.string().trim().max(255).nullish(),
+        from: z.iso.date().nullish(),
+        to: z.iso.date().nullish(),
+        rows: z.number().int().nonnegative(),
+      }),
+    )
+    .max(2)
+    .default([]),
+  changes: z.number().int().nonnegative().default(0),
 });
 
 ledger.post("/movements/import", zValidator("json", importInput), async (c) => {
   const db = c.env.DB;
   const userId = c.var.user.id;
-  const { movements, cashMovements, remove, dividends } = c.req.valid("json");
+  const { movements, cashMovements, remove, dividends, files, changes } = c.req.valid("json");
   const statements: D1PreparedStatement[] = [];
 
   // Only cash-only transactions may be removed this way.
@@ -315,6 +351,18 @@ ledger.post("/movements/import", zValidator("json", importInput), async (c) => {
              AND NOT EXISTS (SELECT 1 FROM dividends d WHERE d.stock_id = s.id AND d.type = 'cash' AND d.paid_date = ?3 AND d.cash_amount = ?2)`,
         )
         .bind(userId, d.amount, d.date, d.symbol),
+    );
+  }
+
+  // Saved in the same batch, so the history only lists imports that went through.
+  for (const f of files) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO import_history (user_id, statement, broker, file_name, period_from, period_to, rows, changes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(userId, f.statement, f.broker, f.file_name ?? null, f.from ?? null, f.to ?? null, f.rows, changes),
     );
   }
 

@@ -19,6 +19,7 @@ import {
 } from "./api";
 import { CurrencyProvider, useMoney } from "./currency";
 import { DividendsSection } from "./Dividends";
+import { ImportHistory } from "./ImportHistory";
 import { ImportStatement } from "./ImportStatement";
 import { money } from "./format";
 import { SavingsSection } from "./Savings";
@@ -154,7 +155,12 @@ export default function App({
           rows={holdings}
           quotes={quotes}
           run={run}
-          headerAction={<ImportStatement onImported={refresh} />}
+          headerAction={
+            <Group gap="xs">
+              <ImportHistory />
+              <ImportStatement onImported={refresh} />
+            </Group>
+          }
           onView={(h) => setLifecycleId(h.id)}
           dividends={dividends}
         />
@@ -194,9 +200,10 @@ function Summary({
     from === "VND" ? amount : rates?.rates[from] ? amount / rates.rates[from] : null;
 
   const stocksValue = holdings.reduce((sum, h) => sum + (quotes[h.symbol]?.price ?? 0) * h.shares, 0);
-  // Profit/loss only counts holdings that have both a known cost and a current price.
-  const tracked = holdings.filter((h) => h.shares > 0 && h.cost != null && quotes[h.symbol]);
-  const trackedCost = tracked.reduce((sum, h) => sum + h.cost!, 0);
+  // Profit/loss only counts holdings that have both a known cost and a current price. Its cost is the cost after
+  // cash dividends (STK-2a), as Pinetree totals it, so dividends already received count towards the profit.
+  const tracked = holdings.filter((h) => h.shares > 0 && h.net_avg_price != null && quotes[h.symbol]);
+  const trackedCost = tracked.reduce((sum, h) => sum + h.net_avg_price! * h.shares, 0);
   const trackedValue = tracked.reduce((sum, h) => sum + quotes[h.symbol]!.price * h.shares, 0);
   // Realised profit from sales, over every holding whose sales can be valued.
   const realisedKnown = holdings.filter((h) => h.realised != null);
@@ -220,7 +227,7 @@ function Summary({
         <Stat label="Net worth">{fmt(stocksValue + savingsVnd)}</Stat>
         <Stat label="Stocks">{fmt(stocksValue)}</Stat>
         {tracked.length > 0 && (
-          <Stat label="Stocks profit/loss">
+          <Stat label="Stocks profit/loss (after dividends)">
             <ProfitLoss cost={trackedCost} value={trackedValue} />
           </Stat>
         )}

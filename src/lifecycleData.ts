@@ -28,6 +28,7 @@ export type Lifecycle = {
   events: LifecycleEvent[]; // oldest first
   days: DayPoint[];
   firstDate: string | null;
+  lastHeldDate: string | null; // when the position was last sold down to 0; null while shares are held
   totals: { bought: number; sold: number; bonus: number; cash: number; fees: number; realised: number | null };
   // Money in and out of this stock, VND. null when a buy (invested, cost) or sale (received) has no price.
   money: { invested: number | null; received: number | null; costHeld: number | null; held: number };
@@ -126,6 +127,7 @@ export function buildLifecycle(movements: Movement[], dividends: Dividend[], pri
     });
 
   const events = [...moveEvents, ...cashEvents].sort((a, b) => a.date.localeCompare(b.date));
+  const lastMove = events.filter((e) => e.kind !== "cash").at(-1);
 
   const totals = { bought: 0, sold: 0, bonus: 0, cash: 0, fees: 0, realised: position.realised };
   let invested: number | null = 0;
@@ -167,6 +169,7 @@ export function buildLifecycle(movements: Movement[], dividends: Dividend[], pri
     events,
     days,
     firstDate: events[0]?.date ?? null,
+    lastHeldDate: lastMove && lastMove.heldAfter === 0 ? lastMove.date : null,
     totals,
     money: { invested, received, costHeld: position.cost, held: position.shares },
   };

@@ -9,13 +9,20 @@ export type Quote = { price: number; prevClose: number | null; time: string };
 // Per-isolate cache: enough to avoid hitting the upstream on every page load.
 const cache = new Map<string, { at: number; quote: Quote | null }>();
 
+// Two weeks covers weekends and Tết-length holidays. Thinly traded stocks (e.g. CMF) can go weeks without a
+// trade, so an empty answer is retried over a year: their last trade price is what brokers value them at.
+const LOOKBACK_DAYS = [14, 365];
+
 async function fetchQuote(symbol: string): Promise<Quote | null> {
   const to = Math.floor(Date.now() / 1000);
-  const from = to - 14 * 86400; // two weeks covers weekends and Tết-length holidays
-  const url = `${ENTRADE}?resolution=1D&symbol=${encodeURIComponent(symbol)}&from=${from}&to=${to}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return null; // unknown symbol answers 400
-  const data = (await res.json()) as { t?: number[]; c?: number[] };
+  let data: { t?: number[]; c?: number[] } = {};
+  for (const days of LOOKBACK_DAYS) {
+    const url = `${ENTRADE}?resolution=1D&symbol=${encodeURIComponent(symbol)}&from=${to - days * 86400}&to=${to}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null; // unknown symbol answers 400
+    data = (await res.json()) as { t?: number[]; c?: number[] };
+    if (data.c?.length) break;
+  }
   const n = data.c?.length ?? 0;
   if (!data.t || !data.c || n === 0) return null;
   return {

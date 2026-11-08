@@ -31,6 +31,7 @@ portfolios. Every record belongs to exactly one user and is visible only to that
 | Holding | A stock's position computed from its transactions: shares held, cost basis, average cost. |
 | Bonus shares | Free shares from a stock dividend or bonus issue. They add shares but no cost. |
 | Avg cost | Cost basis ÷ shares held: the broker-style moving average ("giá vốn"), buy fees included. |
+| Avg cost after dividends | Avg cost lowered by the cash dividends received, as Pinetree's "TB" shows it (STK-2a). Initial value and unrealised profit/loss use it, per holding (STK-4) and on the dashboard (DSH-2). |
 | Realised P/L | Profit already locked in by selling: proceeds after fees and tax − the average cost of the shares sold. Excludes dividends and shares still held. |
 | Unrealised P/L | Paper profit on shares still held: current value − their cost. Changes with the price until sold. |
 | Total profit | Realised + cash dividends + unrealised: everything a stock has earned or lost (LIF-7). |
@@ -112,10 +113,17 @@ No email verification at registration, password change while signed in, profile 
   - A buy without a price makes the cost (and average) unknown until the position next returns to 0; a sale
     without a price, or from an unknown cost, makes realised profit unknown.
   - A statement whose first row implies shares held before it starts the position there, with unknown cost.
+- **STK-2a** Avg cost after dividends: a second moving average, kept the same way except that each cash dividend
+  lowers its cost by the amount received, on its paid date, before that day's transactions. A dividend paid after
+  the position was sold out carries into the next one. It's unknown whenever avg cost is.
 - **STK-3** A sale can't exceed the shares held at that point; adding, editing or deleting a transaction that
   would cause that is refused with the date and the shares held.
-- **STK-4** Holdings are listed by symbol: shares, avg cost (— with a hint when buys lack prices), current price,
-  day change, value (price × shares) and unrealised profit/loss (value − cost basis, with percentage).
+- **STK-4** Holdings are listed by symbol: shares, avg cost (— with a hint when buys lack prices), avg cost after
+  dividends (STK-2a), current price, day change, **initial value** (shares × avg cost after dividends; Pinetree's
+  *Giá trị ban đầu*), **market value** (shares × price; *Giá trị thị trường*) and unrealised profit/loss (market
+  value − initial value, with percentage), as Pinetree's table shows them. A **Total** row sums initial and market
+  value over the rows shown, and profit/loss over those with both. Columns sort by clicking their header; a search
+  box filters by symbol.
 - **STK-5** Stocks sold down to 0 move to a **Sold out** list showing their total profit: realised profit from
   sales + cash dividends (the split on hover); their lifecycle stays available.
 - **STK-6** Deleting a holding asks for confirmation and deletes all its transactions and dividends.
@@ -126,6 +134,10 @@ No email verification at registration, password change while signed in, profile 
   apart by title: the **securities statement** (*Sao kê giao dịch chứng khoán*) and the **cash statement**
   (*Sao kê giao dịch tiền*). Files are read in the browser and never uploaded. Columns are found by heading, so
   layout shifts don't matter; other files are rejected with a clear message.
+- **IMP-1a** "Import statements" first opens a guide: (1) download the securities statement and (2) the cash
+  statement from Pinetree, each with a link to its page (trade.pinetree.vn → Giao dịch → Sao kê …) and, once
+  something was imported, the end of that statement's last imported period (IMP-10); (3) upload the .xlsx files,
+  picked or dropped, one or both. The missing-statement warning (IMP-5a) links to that statement's page too.
 - **IMP-2** Securities statement rows, by description: *…đã mua* = buy; *…đã bán* = sale; *…chuyển từ chờ
   giao dịch sang giao dịch* = bonus shares. Each row is dated at settlement and carries the balance after it, but
   no price.
@@ -141,6 +153,9 @@ No email verification at registration, password change while signed in, profile 
   transactions of their own, one per symbol, side and trade day (partial fills summed), dated at the trade date
   with exact price, fees and tax. Bonus shares exist only in the securities statement, so the preview warns that
   they're missing and flags stocks whose sales then exceed their buys.
+- **IMP-5a** A complete timeline needs both statements. When the preview lacks one and it would add something
+  (bonus shares not yet saved, or buys and sales still without a price), it shows a warning naming that statement
+  and what's missing, with a button that adds the file to the same preview.
 - **IMP-6** Importing the securities statement later replaces those cash-only transactions with its own rows
   (which take over their prices), so no trade is counted twice. Importing both files at once, cash then
   securities, or securities then cash all give the same holdings.
@@ -151,10 +166,16 @@ No email verification at registration, password change while signed in, profile 
   replaced) and, per stock, shares and avg cost before → after, realised profit/loss and a status
   (New / Update / No change). Nothing is saved until "Import N changes".
 - **IMP-9** If saving fails midway, the error says so; importing the same files again completes the rest.
+- **IMP-10** Import history: each saved import records, per statement file, the statement type, broker, file
+  name, the period it covers (from its title), its rows and the changes the import saved. A **History** button
+  next to "Import statements" lists them newest first and sums up the periods each statement type covers,
+  merging overlapping or touching ones; more than one range means a gap. An import with no changes isn't saved,
+  so it isn't recorded.
 
 ### Lifecycle view
 
-- **LIF-1** Each holding (and sold-out stock) has a lifecycle view: totals (held now, avg cost, first event,
+- **LIF-1** Each holding (and sold-out stock) has a lifecycle view: totals (held now, avg cost, avg cost after
+  dividends, first event,
   bought / sold, bonus shares, cash dividends, fees & tax; profit is in the summary, LIF-7), then three charts sharing one time axis
   and hover guide:
   - **Price** (daily close) with markers: ▲ buy, ▼ sell, ◆ bonus shares, ● cash dividend. The price history is
@@ -253,8 +274,8 @@ No email verification at registration, password change while signed in, profile 
   - **Net worth** = stocks value + all savings converted to VND. Savings in a currency with no exchange rate are
     left out, and a note under the tiles says which.
   - **Stocks** = Σ price × shares held over holdings that have a price.
-  - **Stocks profit/loss** (unrealised): over holdings with a known cost and a price, value − cost basis. Hidden if
-    no holding qualifies.
+  - **Stocks profit/loss (after dividends)**: over holdings with a known cost and a price, value − cost after
+    dividends (avg cost after dividends × shares, STK-2a), as Pinetree totals it. Hidden if no holding qualifies.
   - **Realised profit/loss**: Σ realised profit over stocks whose sales can be valued (STK-2); hidden while 0.
   - **Cash dividends received** = Σ cash dividends; hidden when 0.
   - **Savings**: all convertible deposits in one total; any currency without a rate gets its own tile in that
@@ -335,7 +356,7 @@ All under `/api`, JSON in and out. ✱ = no session required.
 | `PATCH /auth/me` | `{ currency }` → updated user | CUR-1 |
 | `POST /auth/forgot` ✱ | Request reset email; always `{ ok: true }` | AUTH-10–12 |
 | `POST /auth/reset` ✱ | `{ token, password }` → new password, signed in | AUTH-13–14 |
-| `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, cost, realised, unpriced, first_date }` | STK-2, STK-4 |
+| `GET /stocks` | Holdings computed from transactions: `{ id, symbol, shares, avg_price, net_avg_price, cost, realised, unpriced, first_date }` | STK-2, STK-4 |
 | `DELETE /stocks/:id` | Delete a holding with its transactions and dividends | STK-6 |
 | `GET/POST /dividends`, `PUT/DELETE /dividends/:id` | Cash dividends | DIV-1–2 |
 | `GET/POST /savings`, `PUT/DELETE /savings/:id` | Deposits | SAV-1, SAV-6 |
@@ -345,7 +366,8 @@ All under `/api`, JSON in and out. ✱ = no session required.
 | `GET /movements?symbol=` | Transactions (all, or one symbol) | LIF-2 |
 | `POST /movements` | Add `{ symbol, date, kind, quantity, price?, fee?, tax? }`; `400` if it oversells | STK-1, STK-3 |
 | `PUT /movements/:id`, `DELETE /movements/:id` | Edit / delete; imported rows only change price, fee, tax | LIF-3, STK-3 |
-| `POST /movements/import` | `{ movements, cashMovements, remove, dividends }` worked out by the app; returns `{ ok, warnings }` | IMP-4–7 |
+| `POST /movements/import` | `{ movements, cashMovements, remove, dividends, files, changes }` worked out by the app; returns `{ ok, warnings }` | IMP-4–7, IMP-10 |
+| `GET /imports` | Import history, newest first: `{ id, statement, broker, file_name, period_from, period_to, rows, changes, imported_at }` | IMP-10 |
 | `GET /rates` | `{ base: "VND", rates, updated, source }`; `503` if never loaded | CUR-5 |
 
 Errors: `400` invalid input, `401` not signed in / wrong credentials, `404` not found (including other users'
@@ -360,6 +382,7 @@ failures, which carry the validator's details.
 | `sessions` | `token_hash`, `user_id`, `expires_at` | 30-day sessions |
 | `password_resets` | `token_hash`, `user_id`, `expires_at` | 30-minute single-use links |
 | `stock_movements` | `id`, `user_id`, `symbol`, `date`, `kind`, `quantity`, `balance`, `price`, `fee`, `tax`, `trade_date`, `source`, `origin` | The transactions (source of truth). `origin`: `securities` (unique per symbol, date, kind, quantity, balance), `cash` (unique per symbol, trade date, kind) or NULL for ones entered in the app |
+| `import_history` | `id`, `user_id`, `statement`, `broker`, `file_name`, `period_from`, `period_to`, `rows`, `changes`, `imported_at` | One row per statement file per saved import (IMP-10) |
 | `stocks` | `id`, `user_id`, `symbol` (unique per user) | A holding's identity, for dividends to point at; its `shares` / `avg_price` columns are legacy and unused |
 | `dividends` | `id`, `user_id`, `stock_id`, `cash_amount`, `paid_date` | Cash only (`type = 'cash'`); deleted with their stock |
 | `savings` | `id`, `user_id`, `bank`, `amount`, `currency`, `interest_rate`, `start_date`, `term_months` | Maturity is derived, not stored |
